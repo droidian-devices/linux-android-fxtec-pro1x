@@ -2858,8 +2858,6 @@ static bool binder_proc_transaction(struct binder_transaction *t,
 				pr_info("%d has pending async transaction, but still adding a new transaction to todo list (gbinder bug workaround)\n",
 						proc->pid);
 			} else {
-				pr_info("%d not applying gbinder workaround, context %s is not hwbinder\n",
-						proc->pid, proc->context->name);
 				pending_async = true;
 			}
 		} else {
