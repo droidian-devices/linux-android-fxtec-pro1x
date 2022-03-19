@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
- * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -39,7 +38,7 @@
 #define SCM_DLOAD_FULLDUMP		0X10
 #define SCM_EDLOAD_MODE			0X01
 #define SCM_DLOAD_CMD			0x10
-#define SCM_DLOAD_MINIDUMP		0X40
+#define SCM_DLOAD_MINIDUMP		0X20
 #define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_MINIDUMP | SCM_DLOAD_FULLDUMP)
 
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
@@ -63,11 +62,11 @@ static void scm_disable_sdi(void);
  * There is no API from TZ to re-enable the registers.
  * So the SDI cannot be re-enabled when it already by-passed.
  */
-static int download_mode = 1;
+static int download_mode = 0;
 static struct kobject dload_kobj;
 
 static int in_panic;
-static int dload_type = SCM_DLOAD_BOTHDUMPS;
+static int dload_type = SCM_DLOAD_FULLDUMP;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
@@ -187,7 +186,6 @@ static bool get_dload_mode(void)
 	return dload_mode_enabled;
 }
 
-#if 0
 static void enable_emergency_dload_mode(void)
 {
 	int ret;
@@ -214,7 +212,6 @@ static void enable_emergency_dload_mode(void)
 	if (ret)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
-#endif
 
 static int dload_set(const char *val, const struct kernel_param *kp)
 {
@@ -498,10 +495,7 @@ static void msm_restart_prepare(const char *cmd)
 	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 
-	if (in_panic) {
-                qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
-                qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
-        } else if (cmd != NULL) {
+	if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -535,14 +529,10 @@ static void msm_restart_prepare(const char *cmd)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
 		} else if (!strncmp(cmd, "edl", 3)) {
-			;//enable_emergency_dload_mode();
+			enable_emergency_dload_mode();
 		} else {
-                        qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
-        } else {
-                qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
-                __raw_writel(0x77665501, restart_reason);
 	}
 
 	flush_cache_all();

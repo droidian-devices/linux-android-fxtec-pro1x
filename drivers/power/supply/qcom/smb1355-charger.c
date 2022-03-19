@@ -758,7 +758,7 @@ done:
 	return rc;
 }
 
-#define MIN_PARALLEL_ICL_UA		250000
+#define MIN_PARALLEL_ICL_UA		100000
 #define SUSPEND_CURRENT_UA		2000
 static int smb1355_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
@@ -948,7 +948,7 @@ static int smb1355_set_current_max(struct smb1355 *chip, int curr)
 		rc = smb1355_set_parallel_charging(chip, false);
 		if (rc < 0)
 			return rc;
-
+		curr+=1000000;
 		rc = smb1355_set_charge_param(chip,
 				&chip->param.usb_icl, curr);
 		chip->suspended_usb_icl = 0;

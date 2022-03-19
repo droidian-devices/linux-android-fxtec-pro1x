@@ -739,6 +739,7 @@ static int device_pca953x_init(struct pca953x_chip *chip, u32 invert)
 		memset(val, 0, NBANK(chip));
 
 	ret = pca953x_write_regs(chip, PCA953X_INVERT, val);
+	pr_err("device_pca953x_init %d\n",ret);
 out:
 	return ret;
 }
@@ -771,7 +772,10 @@ static int device_pca957x_init(struct pca953x_chip *chip, u32 invert)
 	memset(val, 0x02, NBANK(chip));
 	ret = pca953x_write_regs(chip, PCA957X_BKEN, val);
 	if (ret)
+	{
 		goto out;
+	}
+	pr_err("device_pca957x_init %d\n",ret);
 
 	return 0;
 out:
@@ -788,7 +792,8 @@ static int pca953x_probe(struct i2c_client *client,
 	int irq_base = 0;
 	int ret;
 	u32 invert = 0;
-	struct regulator *reg;
+	//struct regulator *reg;
+	dev_err(&client->dev,"pca953x_probe\n");
 
 	chip = devm_kzalloc(&client->dev,
 			sizeof(struct pca953x_chip), GFP_KERNEL);
@@ -822,7 +827,7 @@ static int pca953x_probe(struct i2c_client *client,
 
 	chip->client = client;
 
-	reg = devm_regulator_get(&client->dev, "vcc");
+	/*reg = devm_regulator_get(&client->dev, "vcc");
 	if (IS_ERR(reg)) {
 		ret = PTR_ERR(reg);
 		if (ret != -EPROBE_DEFER)
@@ -834,7 +839,7 @@ static int pca953x_probe(struct i2c_client *client,
 		dev_err(&client->dev, "reg en err: %d\n", ret);
 		return ret;
 	}
-	chip->regulator = reg;
+	chip->regulator = reg;*/
 
 	if (i2c_id) {
 		chip->driver_data = i2c_id->driver_data;
@@ -919,7 +924,7 @@ static int pca953x_probe(struct i2c_client *client,
 	return 0;
 
 err_exit:
-	regulator_disable(chip->regulator);
+	//regulator_disable(chip->regulator);
 	return ret;
 }
 
@@ -939,7 +944,7 @@ static int pca953x_remove(struct i2c_client *client)
 		ret = 0;
 	}
 
-	regulator_disable(chip->regulator);
+	//regulator_disable(chip->regulator);
 
 	return ret;
 }

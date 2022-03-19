@@ -1,0 +1,1 @@
+obj-$(CONFIG_KEYBOARD_AW9523B)		+= aw9523b.o

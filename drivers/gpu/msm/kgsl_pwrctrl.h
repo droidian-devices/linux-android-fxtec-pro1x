@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
@@ -51,9 +51,9 @@
 /*
  * The effective duration of qos request in usecs at queue time.
  * After timeout, qos request is cancelled automatically.
- * Kept 58ms default, inline with default GPU idle time.
+ * Kept 80ms default, inline with default GPU idle time.
  */
-#define KGSL_L2PC_QUEUE_TIMEOUT	(58 * 1000)
+#define KGSL_L2PC_QUEUE_TIMEOUT	(80 * 1000)
 
 /*
  * The effective duration of qos request in usecs at wakeup time.
@@ -139,6 +139,7 @@ struct gpu_cx_ipeak_client {
  * @previous_pwrlevel - The power level before transition
  * @thermal_pwrlevel - maximum powerlevel constraint from thermal
  * @thermal_pwrlevel_floor - minimum powerlevel constraint from thermal
+ * @default_pwrlevel - device wake up power level
  * @max_pwrlevel - maximum allowable powerlevel per the user
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
@@ -156,6 +157,7 @@ struct gpu_cx_ipeak_client {
  * @pm_qos_req_dma - the power management quality of service structure
  * @pm_qos_active_latency - allowed CPU latency in microseconds when active
  * @pm_qos_cpu_mask_latency - allowed CPU mask latency in microseconds
+ * @input_disable - To disable GPU wakeup on touch input event
  * @pm_qos_wakeup_latency - allowed CPU latency in microseconds during wakeup
  * @bus_control - true if the bus calculation is independent
  * @bus_mod - modifier from the current power level for the bus vote
@@ -178,7 +180,6 @@ struct gpu_cx_ipeak_client {
  * @cx_ipeak_pwr_limit - pointer to the cx_ipeak limits node
  * isense_clk_indx - index of isense clock, 0 if no isense
  * isense_clk_on_level - isense clock rate is XO rate below this level.
- * tzone_name - pointer to thermal zone name of GPU temperature sensor
  * gpu_cx_ipeak_client - CX Ipeak clients used by GPU
  */
 
@@ -196,6 +197,7 @@ struct kgsl_pwrctrl {
 	unsigned int previous_pwrlevel;
 	unsigned int thermal_pwrlevel;
 	unsigned int thermal_pwrlevel_floor;
+	unsigned int default_pwrlevel;
 	unsigned int wakeup_maxpwrlevel;
 	unsigned int max_pwrlevel;
 	unsigned int min_pwrlevel;
@@ -215,6 +217,7 @@ struct kgsl_pwrctrl {
 	unsigned int pm_qos_active_latency;
 	unsigned int pm_qos_cpu_mask_latency;
 	unsigned int pm_qos_wakeup_latency;
+	bool input_disable;
 	bool bus_control;
 	int bus_mod;
 	unsigned int bus_percent_ab;
@@ -236,7 +239,6 @@ struct kgsl_pwrctrl {
 	struct kgsl_pwr_limit *cx_ipeak_pwr_limit;
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
-	const char *tzone_name;
 	struct gpu_cx_ipeak_client gpu_ipeak_client[2];
 };
 

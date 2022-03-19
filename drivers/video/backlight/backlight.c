@@ -2,7 +2,6 @@
  * Backlight Lowlevel Control Abstraction
  *
  * Copyright (C) 2003,2004 Hewlett-Packard Company
- * Copyright (C) 2020 XiaoMi, Inc.
  *
  */
 
@@ -181,7 +180,7 @@ int backlight_device_set_brightness(struct backlight_device *bd,
 		if (brightness > bd->props.max_brightness)
 			rc = -EINVAL;
 		else {
-			pr_info("set brightness to %lu\n", brightness);
+			pr_debug("set brightness to %lu\n", brightness);
 			bd->props.brightness = brightness;
 			rc = backlight_update_status(bd);
 		}
@@ -336,9 +335,8 @@ static int bd_cdev_get_cur_brightness(struct thermal_cooling_device *cdev,
 {
 	struct backlight_device *bd = (struct backlight_device *)cdev->devdata;
 
-	*state = bd->thermal_brightness_limit > 0 ?
-	        bd->thermal_brightness_limit:
-	        bd->props.max_brightness;
+	*state = bd->props.max_brightness - bd->thermal_brightness_limit;
+
 	return 0;
 }
 
@@ -351,12 +349,11 @@ static int bd_cdev_set_cur_brightness(struct thermal_cooling_device *cdev,
 	if (state > bd->props.max_brightness)
 		return -EINVAL;
 
-	brightness_lvl = state;
+	brightness_lvl = bd->props.max_brightness - state;
 	if (brightness_lvl == bd->thermal_brightness_limit)
 		return 0;
-	bd->thermal_brightness_limit = (state == 0) ?
-	        bd->props.max_brightness : state;
 
+	bd->thermal_brightness_limit = brightness_lvl;
 	brightness_lvl = (bd->usr_brightness_req
 				<= bd->thermal_brightness_limit) ?
 				bd->usr_brightness_req :

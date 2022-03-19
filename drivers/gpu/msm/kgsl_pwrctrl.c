@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/msm-bus.h>
@@ -166,7 +166,8 @@ static void _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
  * constraint if one exists.
  */
 static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
-					struct kgsl_pwr_constraint *pwrc)
+					struct kgsl_pwr_constraint *pwrc,
+					int popp)
 {
 	unsigned int max_pwrlevel = max_t(unsigned int, pwr->thermal_pwrlevel,
 					pwr->max_pwrlevel);
@@ -193,6 +194,9 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 	}
 	break;
 	}
+
+	if (popp && (max_pwrlevel < pwr->active_pwrlevel))
+		max_pwrlevel = pwr->active_pwrlevel;
 
 	if (level < max_pwrlevel)
 		return max_pwrlevel;
@@ -574,7 +578,8 @@ unsigned int kgsl_pwrctrl_adjust_pwrlevel(struct kgsl_device *device,
 	 * Adjust the power level if required by thermal, max/min,
 	 * constraints, etc
 	 */
-	return _adjust_pwrlevel(pwr, new_level, &pwr->constraint);
+	return _adjust_pwrlevel(pwr, new_level, &pwr->constraint,
+					device->pwrscale.popp_level);
 }
 
 /**
@@ -717,7 +722,7 @@ void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 	if (device == NULL || pwrc == NULL)
 		return;
 	constraint = _adjust_pwrlevel(&device->pwrctrl,
-				device->pwrctrl.active_pwrlevel, pwrc);
+				device->pwrctrl.active_pwrlevel, pwrc, 0);
 	pwrc_old = &device->pwrctrl.constraint;
 
 	/*
@@ -1054,8 +1059,6 @@ static ssize_t __timer_store(struct device *dev, struct device_attribute *attr,
 	struct kgsl_device *device = dev_get_drvdata(dev);
 	int ret;
 
-	return count;
-
 	ret = kgsl_sysfs_store(buf, &val);
 	if (ret)
 		return ret;
@@ -1323,6 +1326,75 @@ static ssize_t bus_split_store(struct device *dev,
 	return count;
 }
 
+static ssize_t default_pwrlevel_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+		device->pwrctrl.default_pwrlevel);
+}
+
+static ssize_t default_pwrlevel_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
+	int ret;
+	unsigned int level = 0;
+
+	ret = kgsl_sysfs_store(buf, &level);
+	if (ret)
+		return ret;
+
+	if (level > pwr->num_pwrlevels - 2)
+		goto done;
+
+	mutex_lock(&device->mutex);
+	pwr->default_pwrlevel = level;
+	pwrscale->gpu_profile.profile.initial_freq
+			= pwr->pwrlevels[level].gpu_freq;
+
+	mutex_unlock(&device->mutex);
+done:
+	return count;
+}
+
+
+static ssize_t popp_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	unsigned int val = 0;
+	struct kgsl_device *device = dev_get_drvdata(dev);
+	int ret;
+
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&device->mutex);
+	if (val)
+		set_bit(POPP_ON, &device->pwrscale.popp_state);
+	else
+		clear_bit(POPP_ON, &device->pwrscale.popp_state);
+	mutex_unlock(&device->mutex);
+
+	return count;
+}
+
+static ssize_t popp_show(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+		test_bit(POPP_ON, &device->pwrscale.popp_state));
+}
+
 static ssize_t gpu_model_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -1452,23 +1524,29 @@ static ssize_t temp_show(struct device *dev,
 					char *buf)
 {
 	struct kgsl_device *device = dev_get_drvdata(dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct device *_dev;
 	struct thermal_zone_device *thermal_dev;
-	int ret, temperature = 0;
+	int temperature = INT_MIN, max_temp = INT_MIN;
+	const char *name;
+	struct property *prop;
 
-	if (!pwr->tzone_name)
-		return 0;
+	_dev = &device->pdev->dev;
 
-	thermal_dev = thermal_zone_get_zone_by_name((char *)pwr->tzone_name);
-	if (thermal_dev == NULL)
-		return 0;
+	of_property_for_each_string(_dev->of_node,
+		"qcom,tzone-names", prop, name) {
+		thermal_dev = thermal_zone_get_zone_by_name(name);
 
-	ret = thermal_zone_get_temp(thermal_dev, &temperature);
-	if (ret)
-		return 0;
+		if (IS_ERR(thermal_dev))
+			continue;
+
+		if (thermal_zone_get_temp(thermal_dev, &temperature))
+			continue;
+
+		max_temp = max(temperature, max_temp);
+	}
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n",
-			temperature);
+			max_temp);
 }
 
 static ssize_t pwrscale_store(struct device *dev,
@@ -1521,6 +1599,8 @@ static DEVICE_ATTR_RW(force_clk_on);
 static DEVICE_ATTR_RW(force_bus_on);
 static DEVICE_ATTR_RW(force_rail_on);
 static DEVICE_ATTR_RW(bus_split);
+static DEVICE_ATTR_RW(default_pwrlevel);
+static DEVICE_ATTR_RW(popp);
 static DEVICE_ATTR_RW(force_no_nap);
 static DEVICE_ATTR_RO(gpu_model);
 static DEVICE_ATTR_RO(gpu_busy_percentage);
@@ -1548,6 +1628,8 @@ static const struct attribute *pwrctrl_attr_list[] = {
 	&dev_attr_force_rail_on.attr,
 	&dev_attr_force_no_nap.attr,
 	&dev_attr_bus_split.attr,
+	&dev_attr_default_pwrlevel.attr,
+	&dev_attr_popp.attr,
 	&dev_attr_gpu_model.attr,
 	&dev_attr_gpu_busy_percentage.attr,
 	&dev_attr_min_clock_mhz.attr,
@@ -2351,10 +2433,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	kgsl_pwrctrl_vbif_init(device);
 
-	/* temperature sensor name */
-	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
-		&pwr->tzone_name);
-
 	return result;
 
 error_cleanup_bus_ib:
@@ -2527,8 +2605,10 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 	if (pwr->wakeup_maxpwrlevel) {
 		level = pwr->max_pwrlevel;
 		pwr->wakeup_maxpwrlevel = 0;
+	} else if (kgsl_popp_check(device)) {
+		level = pwr->active_pwrlevel;
 	} else {
-		level = pwr->num_pwrlevels - 1;
+		level = pwr->default_pwrlevel;
 	}
 
 	kgsl_pwrctrl_pwrlevel_change(device, level);
@@ -3328,7 +3408,7 @@ EXPORT_SYMBOL(kgsl_pwr_limits_get_freq);
 int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	unsigned int new_level = pwr->num_pwrlevels - 1;
+	unsigned int new_level = pwr->default_pwrlevel;
 	unsigned int old_level = pwr->active_pwrlevel;
 
 	/*

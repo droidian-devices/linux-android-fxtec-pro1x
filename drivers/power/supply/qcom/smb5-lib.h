@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
- * Copyright (C) 2020 XiaoMi, Inc.
+ * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
  */
 
 #ifndef __SMB5_CHARGER_H
@@ -95,7 +94,7 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			2000000
+#define DCP_CURRENT_UA			1500000
 #define HVDCP_CURRENT_UA		3000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
@@ -471,7 +470,6 @@ struct smb_charger {
 	struct delayed_work	pr_swap_detach_work;
 	struct delayed_work	pr_lock_clear_work;
 	struct delayed_work	role_reversal_check;
-	struct delayed_work	temp_limit_work;
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
@@ -512,6 +510,7 @@ struct smb_charger {
 	int			fake_batt_status;
 	bool			step_chg_enabled;
 	bool			sw_jeita_enabled;
+	bool			jeita_arb_enable;
 	bool			typec_legacy_use_rp_icl;
 	bool			is_hdc;
 	bool			chg_done;
@@ -617,9 +616,6 @@ struct smb_charger {
 	int			dcin_uv_count;
 	ktime_t			dcin_uv_last_time;
 	int			last_wls_vout;
-	unsigned long recent_collapse_time;
-	bool		  hvdcp_disabled;
-	bool		  collapsed;
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);

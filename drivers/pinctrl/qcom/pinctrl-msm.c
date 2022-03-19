@@ -452,6 +452,15 @@ static int msm_gpio_direction_output(struct gpio_chip *chip, unsigned offset, in
 		val &= ~BIT(g->out_bit);
 	writel(val, pctrl->regs + g->io_reg);
 
+	if(offset == 98 ||offset == 99 ||offset == 100 ||offset == 101 ||offset == 108 || offset == 102 || offset == 103 || offset == 104 || offset == 107 || offset == 109 || offset == 110 || offset == 111 || offset == 112)
+	{
+		printk(KERN_ERR "%s write egpio func\n",__func__);
+		val = readl(pctrl->regs + g->ctl_reg);	
+		val |= BIT(g->egpio_enable);
+		printk(KERN_ERR "%s pctrl->regs + g->ctl_reg=0x%x\n",__func__,pctrl->regs + g->ctl_reg);
+	    writel(val, pctrl->regs + g->ctl_reg);
+	}
+	
 	val = readl(pctrl->regs + g->ctl_reg);
 	val |= BIT(g->oe_bit);
 	writel(val, pctrl->regs + g->ctl_reg);

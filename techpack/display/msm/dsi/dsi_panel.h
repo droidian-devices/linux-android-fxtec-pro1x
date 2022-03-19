@@ -84,6 +84,13 @@ struct dsi_dfps_capabilities {
 	bool dfps_support;
 };
 
+struct dsi_qsync_capabilities {
+	/* qsync disabled if qsync_min_fps = 0 */
+	u32 qsync_min_fps;
+	u32 *qsync_min_fps_list;
+	int qsync_min_fps_list_len;
+};
+
 struct dsi_dyn_clk_caps {
 	bool dyn_clk_support;
 	u32 *bit_clk_list;
@@ -102,14 +109,6 @@ struct dsi_panel_phy_props {
 	u32 panel_width_mm;
 	u32 panel_height_mm;
 	enum dsi_panel_rotation rotation;
-};
-
-struct dsi_whitep_display_para {
-	int white_point_x;
-	int white_point_y;
-	u32 white_point_r;
-	u32 white_point_g;
-	u32 white_point_b;
 };
 
 struct dsi_backlight_config {
@@ -215,7 +214,7 @@ struct dsi_panel {
 
 	bool panel_initialized;
 	bool te_using_watchdog_timer;
-	u32 qsync_min_fps;
+	struct dsi_qsync_capabilities qsync_caps;
 
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
 	enum dsi_dms_mode dms_mode;
@@ -304,8 +303,6 @@ int dsi_panel_post_enable(struct dsi_panel *panel);
 int dsi_panel_pre_disable(struct dsi_panel *panel);
 
 int dsi_panel_disable(struct dsi_panel *panel);
-
-int dsi_panel_set_feature(struct dsi_panel *panel,enum dsi_cmd_set_type type);
 
 int dsi_panel_unprepare(struct dsi_panel *panel);
 

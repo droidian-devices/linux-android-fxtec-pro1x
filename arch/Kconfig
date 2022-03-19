@@ -563,7 +563,6 @@ config CFI_CLANG_SHADOW
 
 config ARCH_SUPPORTS_SHADOW_CALL_STACK
 	bool
-	default y
 	help
 	  An architecture should select this if it supports Clang's Shadow
 	  Call Stack, has asm/scs.h, and implements runtime support for shadow
@@ -944,16 +943,6 @@ config STRICT_MODULE_RWX
 config ARCH_HAS_PHYS_TO_DMA
 	bool
 
-config ARCH_HAS_REFCOUNT_FULL
-	bool
-	select ARCH_HAS_REFCOUNT
-	help
-	  An architecture selects this when the optimized refcount_t
-	  implementation it provides covers all the cases that
-	  CONFIG_REFCOUNT_FULL covers as well, in which case it makes no
-	  sense to even offer CONFIG_REFCOUNT_FULL as a user selectable
-	  option.
-
 config ARCH_HAS_REFCOUNT
 	bool
 	help
@@ -967,7 +956,7 @@ config ARCH_HAS_REFCOUNT
 	  against bugs in reference counts.
 
 config REFCOUNT_FULL
-	bool "Perform full reference count validation at the expense of speed" if !ARCH_HAS_REFCOUNT_FULL
+	bool "Perform full reference count validation at the expense of speed"
 	help
 	  Enabling this switches the refcounting infrastructure from a fast
 	  unchecked atomic_t implementation to a fully state checked

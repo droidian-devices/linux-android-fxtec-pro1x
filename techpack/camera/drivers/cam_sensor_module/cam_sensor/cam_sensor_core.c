@@ -12,6 +12,9 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+//add by hzt 2021-7-1 for debug
+//#undef CAM_DBG
+//#define CAM_DBG(fmt,args...) CAM_ERR(fmt,##args)
 
 static void cam_sensor_update_req_mgr(
 	struct cam_sensor_ctrl_t *s_ctrl,
@@ -1128,7 +1131,10 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 			rc = 0;
 		}
 	}
-
+	//add by hzt 2021-9-4 for control external gpio
+	power_info->imx582_avdd18_gpio=s_ctrl->imx582_avdd18_gpio;
+	//add by hzt 2021-9-4 for control external gpio
+	
 	rc = cam_sensor_core_power_up(power_info, soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);

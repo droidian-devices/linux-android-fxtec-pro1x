@@ -81,7 +81,7 @@ static inline struct kgsl_pagetable *_get_memdesc_pagetable(
 
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
-static const struct file_operations kgsl_fops;
+static const struct vm_operations_struct kgsl_gpumem_vm_ops;
 
 /*
  * The memfree list contains the last N blocks of memory that have been freed.
@@ -233,9 +233,9 @@ static struct kgsl_mem_entry *kgsl_mem_entry_create(void)
 		kref_init(&entry->refcount);
 		/* put this ref in userspace memory alloc and map ioctls */
 		kref_get(&entry->refcount);
+		atomic_set(&entry->map_count, 0);
 	}
 
-	atomic_set(&entry->map_count, 0);
 	return entry;
 }
 
@@ -2340,7 +2340,7 @@ static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 	}
 
 	handle = kgsl_sync_fence_async_wait(event.fd,
-		gpuobj_free_fence_func, entry);
+		gpuobj_free_fence_func, entry, NULL);
 
 	if (IS_ERR(handle)) {
 		kgsl_mem_entry_unset_pend(entry);
@@ -2437,7 +2437,7 @@ static int check_vma(unsigned long hostptr, u64 size)
 			return false;
 
 		/* Don't remap memory that we already own */
-		if (vma->vm_file && vma->vm_file->f_op == &kgsl_fops)
+		if (vma->vm_file && vma->vm_ops == &kgsl_gpumem_vm_ops)
 			return false;
 
 		cur = vma->vm_end;
@@ -2594,7 +2594,7 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 		 * Check to see that this isn't our own memory that we have
 		 * already mapped
 		 */
-		if (vma->vm_file->f_op == &kgsl_fops) {
+		if (vma->vm_ops == &kgsl_gpumem_vm_ops) {
 			up_read(&current->mm->mmap_sem);
 			return -EFAULT;
 		}
@@ -4973,9 +4973,10 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		}
 	}
 
-	vma->vm_file = file;
-
-	entry->memdesc.vma = vma;
+	if (entry->memdesc.shmem_filp) {
+		fput(vma->vm_file);
+		vma->vm_file = get_file(entry->memdesc.shmem_filp);
+	}
 
 	/*
 	 * kgsl gets the entry id or the gpu address through vm_pgoff.
@@ -5345,7 +5346,7 @@ static void kgsl_core_exit(void)
 static int __init kgsl_core_init(void)
 {
 	int result = 0;
-	struct sched_param param = { .sched_priority = 6 };
+	struct sched_param param = { .sched_priority = 2 };
 
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0,
@@ -5408,7 +5409,7 @@ static int __init kgsl_core_init(void)
 	INIT_LIST_HEAD(&kgsl_driver.pagetable_list);
 
 	kgsl_driver.workqueue = alloc_workqueue("kgsl-workqueue",
-		WQ_HIGHPRI | WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
+		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
 	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);

@@ -279,8 +279,8 @@ enum adreno_preempt_states {
 /**
  * struct adreno_preemption
  * @state: The current state of preemption
- * @counters: Memory descriptor for the memory where the GPU writes the
- * preemption counters on switch
+ * @scratch: Memory descriptor for the memory where the GPU writes the
+ * current ctxt record address and preemption counters on switch
  * @timer: A timer to make sure preemption doesn't stall
  * @work: A work struct for the preemption worker (for 5XX)
  * preempt_level: The level of preemption (for 6XX)
@@ -290,7 +290,7 @@ enum adreno_preempt_states {
  */
 struct adreno_preemption {
 	atomic_t state;
-	struct kgsl_memdesc counters;
+	struct kgsl_memdesc scratch;
 	struct timer_list timer;
 	struct work_struct work;
 	unsigned int preempt_level;
@@ -428,7 +428,7 @@ enum gpu_coresight_sources {
  * @dispatcher: Container for adreno GPU dispatcher
  * @pwron_fixup: Command buffer to run a post-power collapse shader workaround
  * @pwron_fixup_dwords: Number of dwords in the command buffer
- * @pwr_on_work: Work struct for turning on the GPU
+ * @input_work: Work struct for turning on the GPU after a touch event
  * @busy_data: Struct holding GPU VBIF busy stats
  * @ram_cycles_lo: Number of DDR clock cycles for the monitor session (Only
  * DDR channel 0 read cycles in case of GBIF)
@@ -508,7 +508,7 @@ struct adreno_device {
 	struct adreno_dispatcher dispatcher;
 	struct kgsl_memdesc pwron_fixup;
 	unsigned int pwron_fixup_dwords;
-	struct work_struct pwr_on_work;
+	struct work_struct input_work;
 	struct adreno_busy_data busy_data;
 	unsigned int ram_cycles_lo;
 	unsigned int ram_cycles_lo_ch1_read;
@@ -896,6 +896,7 @@ struct adreno_gpudev {
 
 	struct adreno_irq *irq;
 	int num_prio_levels;
+	int cp_rb_cntl;
 	unsigned int vbif_xin_halt_ctrl0_mask;
 	unsigned int gbif_client_halt_mask;
 	unsigned int gbif_arb_halt_mask;
@@ -1042,6 +1043,7 @@ extern struct adreno_gpudev adreno_a5xx_gpudev;
 extern struct adreno_gpudev adreno_a6xx_gpudev;
 
 extern int adreno_wake_nice;
+extern unsigned int adreno_wake_timeout;
 
 int adreno_start(struct kgsl_device *device, int priority);
 int adreno_soft_reset(struct kgsl_device *device);
@@ -1123,6 +1125,7 @@ void adreno_rscc_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
 void adreno_isense_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
+u32 adreno_get_ucode_version(const u32 *data);
 
 
 #define ADRENO_TARGET(_name, _id) \

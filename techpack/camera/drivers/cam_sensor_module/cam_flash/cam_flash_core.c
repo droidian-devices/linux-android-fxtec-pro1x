@@ -11,6 +11,8 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+static struct led_trigger *m_bctorch_trigger = NULL;
+
 static int cam_flash_prepare(struct cam_flash_ctrl *flash_ctrl,
 	bool regulator_enable)
 {
@@ -469,11 +471,13 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 					curr = flash_data->led_current_ma[i];
 				else
 					curr = max_current;
-			}
+
 			CAM_DBG(CAM_FLASH, "Led_Torch[%d]: Current: %d",
 				i, curr);
+
 			cam_res_mgr_led_trigger_event(
 				flash_ctrl->torch_trigger[i], curr);
+            }
 		}
 	} else if (op == CAMERA_SENSOR_FLASH_OP_FIREHIGH) {
 		for (i = 0; i < flash_ctrl->flash_num_sources; i++) {
@@ -520,7 +524,7 @@ int cam_flash_off(struct cam_flash_ctrl *flash_ctrl)
 
 static int cam_flash_low(
 	struct cam_flash_ctrl *flash_ctrl,
-	struct cam_flash_frame_setting *flash_data)
+	struct cam_flash_frame_setting *flash_data,int req_id)
 {
 	int i = 0, rc = 0;
 
@@ -535,10 +539,27 @@ static int cam_flash_low(
 				flash_ctrl->flash_trigger[i],
 				LED_OFF);
 
-	rc = cam_flash_ops(flash_ctrl, flash_data,
-		CAMERA_SENSOR_FLASH_OP_FIRELOW);
-	if (rc)
-		CAM_ERR(CAM_FLASH, "Fire Torch failed: %d", rc);
+	//hjc++ disable torch_0 when use torch only 
+	if ( flash_ctrl->torch_trigger[0] && req_id == 0 &&
+        flash_ctrl->nrt_info.cmn_attr.cmd_type == CAMERA_SENSOR_FLASH_CMD_TYPE_WIDGET )
+    {
+		pr_err("using torch\n");
+		m_bctorch_trigger = flash_ctrl->torch_trigger[0];
+		flash_ctrl->torch_trigger[0] = NULL;
+    }
+
+    rc = cam_flash_ops(flash_ctrl, flash_data, CAMERA_SENSOR_FLASH_OP_FIRELOW);
+    if (rc)
+	    CAM_ERR(CAM_FLASH, "Fire Torch failed: %d", rc);
+
+    //hjc++ enable torch_0 when use torch only 
+    if(m_bctorch_trigger && req_id == 0 &&
+        flash_ctrl->nrt_info.cmn_attr.cmd_type == CAMERA_SENSOR_FLASH_CMD_TYPE_WIDGET)
+    {
+		pr_err("recovery torch paparm\n");
+	    flash_ctrl->torch_trigger[0] = m_bctorch_trigger;
+	    m_bctorch_trigger = NULL;
+    }
 
 	return rc;
 }
@@ -804,7 +825,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 					return -EINVAL;
 				}
 
-				rc = cam_flash_low(fctrl, flash_data);
+				rc = cam_flash_low(fctrl, flash_data,0);
 				if (rc)
 					CAM_ERR(CAM_FLASH,
 						"TORCH ON failed : %d", rc);
@@ -828,7 +849,8 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 
 			if (flash_data->opcode ==
 				CAMERA_SENSOR_FLASH_OP_FIRELOW) {
-				rc = cam_flash_low(fctrl, flash_data);
+
+				rc = cam_flash_low(fctrl, flash_data,0);
 				if (rc) {
 					CAM_ERR(CAM_FLASH,
 						"Torch ON failed : %d",
@@ -862,7 +884,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 				/* Turn On Torch */
 				if (fctrl->flash_state ==
 					CAM_FLASH_STATE_START) {
-					rc = cam_flash_low(fctrl, flash_data);
+					rc = cam_flash_low(fctrl, flash_data,0);
 					if (rc) {
 						CAM_ERR(CAM_FLASH,
 							"Fire Torch Failed");
@@ -912,7 +934,7 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 			(flash_data->cmn_attr.request_id == req_id)) {
 			/* Turn On Torch */
 			if (fctrl->flash_state == CAM_FLASH_STATE_START) {
-				rc = cam_flash_low(fctrl, flash_data);
+				rc = cam_flash_low(fctrl, flash_data,req_id);
 				if (rc) {
 					CAM_ERR(CAM_FLASH,
 						"Torch ON failed: rc= %d",

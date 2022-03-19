@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
- * Copyright (C) 2020 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"QG-K: %s: " fmt, __func__
@@ -29,7 +28,7 @@ enum soc_scaling_feature {
 
 #define DEFAULT_UPDATE_TIME_MS			64000
 #define SOC_SCALE_HYST_MS			2000
-#define VBAT_LOW_HYST_UV			25000
+#define VBAT_LOW_HYST_UV			50000
 #define FULL_SOC				100
 
 static int qg_ss_feature;

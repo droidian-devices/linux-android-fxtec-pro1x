@@ -11,6 +11,7 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/gt1x_v1_6_revised/Kconfig"
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT
@@ -1313,7 +1314,7 @@ config TOUCHSCREEN_ROHM_BU21023
 config TOUCHSCREEN_ST
 	tristate "STMicroelectronics Touchscreen Driver"
 	depends on I2C
-	default y
+	default n
 	help
 	  Say Y here if you have a STMicroelectronics Touchscreen.
 
@@ -1326,7 +1327,7 @@ source "drivers/input/touchscreen/st/Kconfig"
 config TOUCHSCREEN_SYNAPTICS_DSX
 	bool "Synaptics DSX Touchscreen Driver"
 	depends on I2C
-	default y
+	default n
 	help
 	  Say Y here if you have a Synaptics Touchscreen.
 
@@ -1340,7 +1341,7 @@ source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 config TOUCHSCREEN_SYNAPTICS_TCM
 	bool "Synaptics TCM Touchscreen Driver"
 	depends on I2C
-	default y
+	default n
 	help
 	  Say Y here if you have a Synaptics Touchscreen.
 
@@ -1354,36 +1355,5 @@ source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
 source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 source "drivers/input/touchscreen/nt36xxx/Kconfig"
-
-config TOUCHSCREEN_NT36672A
-	bool "NT36672A Touchscreen"
-	default n
-	help
-	  Say Y here if you have NT36672A Touchscreen.
-
-	  If unsure, say N.
-
-config VITURALSAR
-	bool "Vitural Sar series"
-	depends on I2C
-	help
-	 Say Y here if you have a Goodix GT9xx touchscreen.
-	 Gt9xx controllers are multi touch controllers which can
-	 report 5 touches at a time.
-
-	 If unsure, say N.
-
-source "drivers/input/touchscreen/NT36672A/Kconfig"
-
-config TOUCHSCREEN_FT8719
-	bool "FT8719 Touchscreen"
-	default n
-	help
-	  Say Y here if you have FT8719 Touchscreen.
-
-	  If unsure, say N.
-
-source "drivers/input/touchscreen/FT8719/Kconfig"
-source "drivers/input/touchscreen/xiaomi/Kconfig"
 
 endif

@@ -20,7 +20,6 @@ config ARM64
 	select ARCH_HAS_KCOV
 	select ARCH_HAS_MEMBARRIER_SYNC_CORE
 	select ARCH_HAS_PTE_SPECIAL
-	select ARCH_HAS_REFCOUNT_FULL
 	select ARCH_HAS_SET_MEMORY
 	select ARCH_HAS_SG_CHAIN
 	select ARCH_HAS_STRICT_KERNEL_RWX
@@ -505,8 +504,6 @@ config ARM64_ERRATUM_1024718
 config ARM64_ERRATUM_1188873
 	bool "Cortex-A76: MRC read following MRRC read of specific Generic Timer in AArch32 might give incorrect result"
 	default y
-	select ARM_ARCH_TIMER_OOL_WORKAROUND
-	depends on ARM_ARCH_TIMER
 	help
 	  This option adds work arounds for ARM Cortex-A76 erratum 1188873
 
@@ -1578,13 +1575,6 @@ config KRYO_PMU_WORKAROUND
 	  overflow interrupts from multiple monitors.
 
 	  Enable this flag for effect SoCs.
-
-config BOOT_INFO
-	bool "Boot information from bootloader"
-	default y
-	help
-	  On embedded linux device, we try to collect more information from
-	  bootloader to kernel. eg. powerup reason.
 
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"

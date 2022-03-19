@@ -2,7 +2,6 @@
  * Persistent Storage - ramfs parts.
  *
  * Copyright (C) 2010 Intel Corporation <tony.luck@intel.com>
- * Copyright (C) 2020 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -291,7 +290,7 @@ static const struct super_operations pstore_ops = {
 	.show_options	= pstore_show_options,
 };
 
-struct super_block *pstore_sb;
+static struct super_block *pstore_sb;
 
 bool pstore_is_mounted(void)
 {

@@ -316,6 +316,9 @@ struct cam_sensor_power_ctrl_t {
 	struct msm_camera_gpio_num_info *gpio_num_info;
 	struct msm_pinctrl_info pinctrl_info;
 	uint8_t cam_pinctrl_status;
+	//add by hzt 2021-9-4 for control external gpio
+	int imx582_avdd18_gpio;
+	//add by hzt 2021-9-4 for control external gpio
 };
 
 struct cam_camera_slave_info {

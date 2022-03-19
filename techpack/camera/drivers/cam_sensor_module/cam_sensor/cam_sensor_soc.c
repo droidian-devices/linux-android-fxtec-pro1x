@@ -254,6 +254,14 @@ int32_t cam_sensor_parse_dt(struct cam_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
+	//add by hzt 2021-9-4 for control external gpio
+	
+	s_ctrl->imx582_avdd18_gpio = of_get_named_gpio(s_ctrl->of_node, "imx582_avdd18,pwr-gpio", 0);
+	
+	//add by hzt 2021-9-4 for control external gpio
+
+
+
 	/* Initialize mutex */
 	mutex_init(&(s_ctrl->cam_sensor_mutex));
 

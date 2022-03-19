@@ -3,7 +3,6 @@
  * main.c - Multi purpose firmware loading support
  *
  * Copyright (c) 2003 Manuel Estrada Sainz
- * Copyright (C) 2020 XiaoMi, Inc.
  *
  * Please see Documentation/firmware_class/ for more information.
  *
@@ -284,12 +283,12 @@ static void free_fw_priv(struct fw_priv *fw_priv)
 static char fw_path_para[256];
 static const char * const fw_path[] = {
 	fw_path_para,
+	"/system/vendor/firmware",
+	"/system/etc/firmware",
 	"/lib/firmware/updates/" UTS_RELEASE,
 	"/lib/firmware/updates",
 	"/lib/firmware/" UTS_RELEASE,
-	"/lib/firmware",
-	"/system/vendor/firmware",
-	"/vendor/firmware"
+	"/lib/firmware"
 };
 
 /*

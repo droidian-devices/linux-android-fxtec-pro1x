@@ -1,0 +1,13 @@
+# Copyright (C) MicroArray  
+# MicroArray Fprint Driver Code
+# Kconfig
+# Date: 2017-3-15
+# Version: v4.0.06
+# Author: guq
+# Contact: guq@microarray.com.cn
+
+config MICROARRAY_FINGERPRINT
+	tristate "MICROARRAY Fingerprint"
+	default y
+	---help---
+	    MICROARRAY Fingerprint chip AFS121 AFS112 AFS83 TEE driver

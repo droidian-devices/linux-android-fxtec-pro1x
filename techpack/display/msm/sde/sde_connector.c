@@ -148,7 +148,7 @@ static int sde_backlight_setup(struct sde_connector *c_conn,
 	display = (struct dsi_display *) c_conn->display;
 	bl_config = &display->panel->bl_config;
 	props.max_brightness = bl_config->brightness_max_level;
-	props.brightness = 1023;
+	props.brightness = bl_config->brightness_max_level;
 	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
 							display_count);
 	c_conn->bl_device = backlight_device_register(bl_node_name, dev->dev,
@@ -1378,10 +1378,6 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
-	case CONNECTOR_PROP_LP:
-                if(connector->dev)
-                        connector->dev->doze_state = val;
-                break;
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -2128,8 +2124,6 @@ static int sde_connector_atomic_check(struct drm_connector *connector,
 		struct drm_connector_state *new_conn_state)
 {
 	struct sde_connector *c_conn;
-	struct sde_connector_state *c_state;
-	bool qsync_dirty = false, has_modeset = false;
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -2142,19 +2136,6 @@ static int sde_connector_atomic_check(struct drm_connector *connector,
 	}
 
 	c_conn = to_sde_connector(connector);
-	c_state = to_sde_connector_state(new_conn_state);
-
-	has_modeset = sde_crtc_atomic_check_has_modeset(new_conn_state->state,
-						new_conn_state->crtc);
-	qsync_dirty = msm_property_is_dirty(&c_conn->property_info,
-					&c_state->property_state,
-					CONNECTOR_PROP_QSYNC_MODE);
-
-	SDE_DEBUG("has_modeset %d qsync_dirty %d\n", has_modeset, qsync_dirty);
-	if (has_modeset && qsync_dirty) {
-		SDE_ERROR("invalid qsync update during modeset\n");
-		return -EINVAL;
-	}
 
 	if (c_conn->ops.atomic_check)
 		return c_conn->ops.atomic_check(connector,
