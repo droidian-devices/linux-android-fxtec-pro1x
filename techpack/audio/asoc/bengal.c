@@ -566,20 +566,14 @@ static void *def_rouleur_mbhc_cal(void);
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
-	.detect_extn_cable = true,
+	.detect_extn_cable = false,
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
-#ifdef CONFIG_MACH_XIAOMI_LIME
-	.key_code[1] = BTN_1,
-	.key_code[2] = BTN_2,
-	.key_code[3] = 0,
-#else
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
 	.key_code[3] = KEY_VOLUMEDOWN,
-#endif
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -2190,7 +2184,7 @@ static int cdc_dma_rx_ch_get(struct snd_kcontrol *kcontrol,
 		return ch_num;
 	}
 
-	pr_debug("%s: cdc_dma_rx_ch  = %d\n", __func__,
+	pr_err("%s: cdc_dma_rx_ch  = %d\n", __func__,
 		 cdc_dma_rx_cfg[ch_num].channels - 1);
 	ucontrol->value.integer.value[0] = cdc_dma_rx_cfg[ch_num].channels - 1;
 	return 0;
@@ -2208,7 +2202,7 @@ static int cdc_dma_rx_ch_put(struct snd_kcontrol *kcontrol,
 
 	cdc_dma_rx_cfg[ch_num].channels = ucontrol->value.integer.value[0] + 1;
 
-	pr_debug("%s: cdc_dma_rx_ch = %d\n", __func__,
+	pr_err("%s: cdc_dma_rx_ch = %d\n", __func__,
 		cdc_dma_rx_cfg[ch_num].channels);
 	return 1;
 }
@@ -2884,108 +2878,64 @@ static int msm_bt_sample_rate_tx_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-#ifdef CONFIG_MACH_XIAOMI_LIME
-//add for awinic pa 87359
-extern unsigned char aw87359_audio_dspk(void);
-extern unsigned char aw87359_audio_abrcv(void);
-extern unsigned char aw87359_audio_off(void);
-static int aw87359_spk_control = 0;
-static int aw87359_rcv_control = 0;
-static const char *const ext_top_speaker_amp_function[] = { "Off", "On" };
-static const char *const ext_receiver_amp_function[] = { "Off", "On" };
-static int ext_top_speaker_amp_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] = aw87359_spk_control;
-	pr_debug("%s: aw87359_spk_control = %d\n", __func__,
-		aw87359_spk_control);
-	return 0;
+//added by uner start
+extern unsigned char aw87xxx_show_current_mode(int32_t channel); 
+extern int aw87xxx_audio_scene_load(uint8_t mode, int32_t channel);
+extern unsigned char aw87xxx_show_current_mode1(int32_t channel); 
+extern int aw87xxx_audio_scene_load1(uint8_t mode, int32_t channel);
+
+static const char *const aw87xxx_mode_function_text[] = { "Off", "Music", "Voice", "Fm", "Rcv" };
+enum { AW87XXX_LEFT_CHANNEL = 0, AW87XXX_RIGHT_CHANNEL = 1, };
+
+static SOC_ENUM_SINGLE_EXT_DECL(aw87xxx_mode_function, aw87xxx_mode_function_text);
+
+static int aw87xxx_mode_get_0(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol) 
+{ 
+    unsigned char current_mode; 
+    current_mode = aw87xxx_show_current_mode(AW87XXX_LEFT_CHANNEL); 
+    ucontrol->value.integer.value[0] = current_mode;
+    pr_info("%s: get mode:%d\n", __func__, current_mode);
+    return 0; 
+} 
+static int aw87xxx_mode_set_0(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol) 
+{ 
+    int ret = 0;
+    unsigned char set_mode;
+
+    set_mode = ucontrol->value.integer.value[0];
+    ret = aw87xxx_audio_scene_load(set_mode, AW87XXX_LEFT_CHANNEL); 
+    if (ret < 0) 
+    {
+        pr_err("%s: mode:%d set failed\n", __func__, set_mode); 
+        return -EPERM; 
+    } 
+    pr_info("%s: set mode:%d success", __func__, set_mode); 
+    return 0; 
+} 
+static int aw87xxx_mode_get_1(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+{ 
+    unsigned char current_mode;
+    current_mode = aw87xxx_show_current_mode1(AW87XXX_RIGHT_CHANNEL);
+    ucontrol->value.integer.value[0] = current_mode; 
+    pr_info("%s: get mode:%d\n", __func__, current_mode);
+    return 0; 
 }
+static int aw87xxx_mode_set_1(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol) 
+{ 
+    int ret = 0;
+    unsigned char set_mode;
 
-static int ext_top_speaker_amp_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	if(ucontrol->value.integer.value[0] == aw87359_spk_control){
-		return 1;
-	}
-	aw87359_spk_control = ucontrol->value.integer.value[0];
-	if(ucontrol->value.integer.value[0]) {
-		aw87359_audio_dspk();
-	} else {
-		aw87359_audio_off();
-	}
-	pr_debug("%s: value.integer.value = %d\n", __func__,
-		ucontrol->value.integer.value[0]);
-	return 0;
-	}
-
-static int ext_receiver_amp_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] = aw87359_rcv_control;
-	pr_debug("%s: aw87359_rcv_control = %d\n", __func__,
-		aw87359_rcv_control);
-	return 0;
+    set_mode = ucontrol->value.integer.value[0];
+    ret = aw87xxx_audio_scene_load1(set_mode, AW87XXX_RIGHT_CHANNEL); 
+    if (ret < 0) 
+    { 
+        pr_err("%s: mode:%d set failed\n", __func__, set_mode); 
+        return -EPERM; 
+    }
+    pr_info("%s: set mode:%d success", __func__, set_mode);
+    return 0; 
 }
-
-static int ext_receiver_amp_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	if(ucontrol->value.integer.value[0] == aw87359_rcv_control){
-		return 1;
-	}
-	aw87359_rcv_control = ucontrol->value.integer.value[0];
-	if(ucontrol->value.integer.value[0]) {
-		aw87359_audio_abrcv();
-	} else {
-		aw87359_audio_off();
-	}
-	pr_debug("%s: value.integer.value = %d\n", __func__,
-		ucontrol->value.integer.value[0]);
-	return 0;
-}
-
-//add for awinic pa 87519
-extern unsigned char aw87519_audio_kspk(void);
-extern unsigned char aw87519_audio_off(void);
-static int aw87519_spk_control = 0;
-static const char *const ext_bottom_speaker_amp_function[] = { "Off", "On" };
-static int ext_bottom_speaker_amp_get(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] = aw87519_spk_control;
-	pr_debug("%s: aw87519_spk_control = %d\n", __func__,
-		aw87519_spk_control);
-	return 0;
-}
-
-static int ext_bottom_speaker_amp_put(struct snd_kcontrol *kcontrol,
-		struct snd_ctl_elem_value *ucontrol)
-{
-	if(ucontrol->value.integer.value[0] == aw87519_spk_control){
-		return 1;
-	}
-	aw87519_spk_control = ucontrol->value.integer.value[0];
-	if(ucontrol->value.integer.value[0]) {
-		aw87519_audio_kspk();
-	} else {
-		aw87519_audio_off();
-	}
-	pr_debug("%s: value.integer.value = %d\n", __func__,
-		ucontrol->value.integer.value[0]);
-	return 0;
-}
-
-//add for Awinic pa 87359 & 87519
-static const struct soc_enum msm_snd_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_top_speaker_amp_function),
-				ext_top_speaker_amp_function),
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_receiver_amp_function),
-				ext_receiver_amp_function),
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_bottom_speaker_amp_function),
-				ext_bottom_speaker_amp_function),
-};
-#endif
+//added by uner end
 
 static const struct snd_kcontrol_new msm_int_snd_controls[] = {
 	SOC_ENUM_EXT("RX_CDC_DMA_RX_0 Channels", rx_cdc_dma_rx_0_chs,
@@ -3020,15 +2970,6 @@ static const struct snd_kcontrol_new msm_int_snd_controls[] = {
 			cdc_dma_rx_format_get, cdc_dma_rx_format_put),
 	SOC_ENUM_EXT("RX_CDC_DMA_RX_5 Format", rx_cdc_dma_rx_5_format,
 			cdc_dma_rx_format_get, cdc_dma_rx_format_put),
-#ifdef CONFIG_MACH_XIAOMI_LIME
-//add for Awinic pa 87359 & 87519
-	SOC_ENUM_EXT("Ext_TOP_Speaker_Amp", msm_snd_enum[0],
-			ext_top_speaker_amp_get, ext_top_speaker_amp_put),
-	SOC_ENUM_EXT("Ext_Receiver_Amp", msm_snd_enum[1],
-			ext_receiver_amp_get, ext_receiver_amp_put),
-	SOC_ENUM_EXT("Ext_BOTTOM_Speaker_Amp", msm_snd_enum[2],
-			ext_bottom_speaker_amp_get, ext_bottom_speaker_amp_put),
-#endif
 	SOC_ENUM_EXT("TX_CDC_DMA_TX_0 Format", tx_cdc_dma_tx_0_format,
 			cdc_dma_tx_format_get, cdc_dma_tx_format_put),
 	SOC_ENUM_EXT("TX_CDC_DMA_TX_3 Format", tx_cdc_dma_tx_3_format,
@@ -3085,6 +3026,10 @@ static const struct snd_kcontrol_new msm_int_snd_controls[] = {
 			va_cdc_dma_tx_2_sample_rate,
 			cdc_dma_tx_sample_rate_get,
 			cdc_dma_tx_sample_rate_put),
+    //added by uner start
+    SOC_ENUM_EXT("aw87xxx_mode_switch_0", aw87xxx_mode_function, aw87xxx_mode_get_0, aw87xxx_mode_set_0), 
+    SOC_ENUM_EXT("aw87xxx_mode_switch_1", aw87xxx_mode_function, aw87xxx_mode_get_1, aw87xxx_mode_set_1),
+    //added by uner end
 };
 
 static const struct snd_kcontrol_new msm_common_snd_controls[] = {
@@ -4390,6 +4335,8 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(rtd->card);
 
+    pr_err("%s: enter\n",__func__);
+
 	component = snd_soc_rtdcom_lookup(rtd, "bolero_codec");
 	if (!component) {
 		pr_err("%s: could not find component for bolero_codec\n",
@@ -4503,13 +4450,8 @@ static void *def_wcd_mbhc_cal(void)
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	btn_high[0] = 75;
-#ifdef CONFIG_MACH_XIAOMI_LIME
-	btn_high[1] = 225;
-	btn_high[2] = 450;
-#else
 	btn_high[1] = 150;
 	btn_high[2] = 237;
-#endif
 	btn_high[3] = 500;
 	btn_high[4] = 500;
 	btn_high[5] = 500;
@@ -6001,6 +5943,8 @@ static int msm_audrx_stub_init(struct snd_soc_pcm_runtime *rtd)
 	int ret = -EINVAL;
 	struct snd_soc_component *component =
 			snd_soc_rtdcom_lookup(rtd, "msm-stub-codec");
+
+    pr_err("* %s: enter\n",__func__);
 
 	if (!component) {
 		pr_err("* %s: No match for msm-stub-codec component\n",
