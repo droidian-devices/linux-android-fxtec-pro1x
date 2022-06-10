@@ -1134,7 +1134,8 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	//add by hzt 2021-9-4 for control external gpio
 	power_info->imx582_avdd18_gpio=s_ctrl->imx582_avdd18_gpio;
 	//add by hzt 2021-9-4 for control external gpio
-	
+    power_info->imx582_avdd28_gpio=s_ctrl->imx582_avdd28_gpio;
+
 	rc = cam_sensor_core_power_up(power_info, soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);

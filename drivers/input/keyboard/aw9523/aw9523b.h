@@ -42,12 +42,12 @@
 
 
 
-//IICçš„å†™åœ°å€ï¼Œ={1011ï¼Œ0ï¼ŒAD1ï¼ŒAD0ï¼Œ0}ï¼ŒAD0,AD1æ¥ä½åˆ™ä¸º0xB0 ï¼Œæ¥é«˜åˆ™æ˜¯0xB6
+//IICµÄĞ´µØÖ·£¬={1011£¬0£¬AD1£¬AD0£¬0}£¬AD0,AD1½ÓµÍÔòÎª0xB0 £¬½Ó¸ßÔòÊÇ0xB6
 #define IIC_ADDRESS_WRITE       (0xB0)  //0x58
 #define IIC_ADDRESS_READ        (0xB1) 
 
-#define X_NUM  (8)   //åˆ—
-#define Y_NUM  (8)   //è¡Œ
+#define X_NUM  (8)   //ÁĞ
+#define Y_NUM  (8)   //ĞĞ
 
 //i2c  tranfer ,repeat try times
 #define AW9523_I2C_MAX_LOOP  (50)

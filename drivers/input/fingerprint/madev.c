@@ -22,16 +22,18 @@ static DECLARE_WAIT_QUEUE_HEAD(screenwaitq);
 static DECLARE_WAIT_QUEUE_HEAD(gWaitq);
 static DECLARE_WAIT_QUEUE_HEAD(U1_Waitq);
 static DECLARE_WAIT_QUEUE_HEAD(U2_Waitq);
+
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source *gIntWakeLock = NULL;
 struct wakeup_source *gProcessWakeLock = NULL;
 #else
 struct wake_lock gIntWakeLock;
 struct wake_lock gProcessWakeLock;
-#endif
+#endif //CONFIG_PM_WAKELOCKS
+
 struct work_struct gWork;
 struct workqueue_struct *gWorkq;
-//
+
 static LIST_HEAD(dev_list);
 static DEFINE_MUTEX(dev_lock);
 static DEFINE_MUTEX(drv_lock);
@@ -55,17 +57,17 @@ static void mas_work(struct work_struct *pws) {
     smas->f_irq = 1;
     wake_up(&gWaitq);
 #ifdef COMPATIBLE_VERSION3
-	wake_up(&drv_waitq);
+    wake_up(&drv_waitq);
 #endif
 }
 
 static irqreturn_t mas_interrupt(int irq, void *dev_id) {
 #ifdef DOUBLE_EDGE_IRQ
-	if(mas_get_interrupt_gpio(0)==1){
-		//TODO IRQF_TRIGGER_RISING
-	}else{
-		//TODO IRQF_TRIGGER_FALLING
-	}
+    if(mas_get_interrupt_gpio(0)==1){
+        //TODO IRQF_TRIGGER_RISING
+    }else{
+        //TODO IRQF_TRIGGER_FALLING
+    }
 #else
     printk("mas_interrupt.\n");
 #ifdef CONFIG_PM_WAKELOCKS
@@ -126,27 +128,6 @@ struct spi_transfer t = {
 
 
 
-/* 读数据
- * @return 成功:count, -1count太大，-2通讯失败, -3拷贝失败
- */
-static ssize_t mas_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos) {
-    int val, ret = 0;
-   // MALOGD("start");
-    ret = mas_sync(stxb, srxb, count);
-    if(ret) {
-        MALOGW("mas_sync failed.");
-        return -2;
-    }
-    ret = copy_to_user(buf, srxb, count);
-    if(!ret) val = count;
-    else {
-        val = -3;
-        MALOGW("copy_to_user failed.");
-    }
-  //  MALOGD("end.");
-    return val;
-}
-
 
 static void mas_set_input(void) {
     struct input_dev *input = NULL;
@@ -200,12 +181,14 @@ static long mas_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
             smas->f_irq = 1;
             wake_up(&gWaitq);
             break;
+#ifndef USE_PLATFORM_DRIVE
         case ENABLE_CLK:
             mas_enable_spi_clock(smas->spi);                                    //if the spi clock is not opening always, do this methods
             break;
         case DISABLE_CLK:
             mas_disable_spi_clock(smas->spi);                                   //disable the spi clock
             break;
+#endif
         case ENABLE_INTERRUPT:
             enable_irq(irq);                                                    //enable the irq,in fact, you can make irq enable always
             break;
@@ -362,10 +345,12 @@ int version3_ioctl(int cmd, int arg){
 						break;
 				case IOCTL_IRQ_ENABLE:
 						break;
+                #ifndef USE_PLATFORM_DRIVE
 				case IOCTL_SPI_SPEED:
 						smas->spi->max_speed_hz = (u32) arg;
 						spi_setup(smas->spi);
 						break;
+                #endif //USE_PLATFORM_DRIVE
 				case IOCTL_COVER_NUM:
 						ret = COVER_NUM;
 						break;
@@ -444,13 +429,14 @@ int version3_ioctl(int cmd, int arg){
 }
 #endif
 
+#ifndef USE_PLATFORM_DRIVE
 /* 写数据
  * @return 成功:count, -1count太大，-2拷贝失败
  */
 static ssize_t mas_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos) {
     int val = 0;
-   // MALOGD("start");
-    if(count==6) {                                                                              //cmd ioctl, old version used the write interface to do ioctl, this is only for the old version
+    // MALOGD("start");
+        if(count==6) {                                                                              //cmd ioctl, old version used the write interface to do ioctl, this is only for the old version
         int cmd, arg;
         u8 tmp[6];
         ret = copy_from_user(tmp, buf, count);
@@ -464,10 +450,10 @@ static ssize_t mas_write(struct file *filp, const char __user *buf, size_t count
         arg += tmp[4];
         arg <<= 8;
         arg += tmp[5];
-#ifdef COMPATIBLE_VERSION3
+        #ifdef COMPATIBLE_VERSION3
         val = (int)version3_ioctl(NULL, (unsigned int)cmd, (unsigned long)arg);
-#endif
-	} else {
+        #endif
+    } else {
         memset(stxb, 0, FBUF);
         ret = copy_from_user(stxb, buf, count);
         if(ret) {
@@ -477,9 +463,32 @@ static ssize_t mas_write(struct file *filp, const char __user *buf, size_t count
             val = count;
         }
     }
-   // MALOGD("end");
+    // MALOGD("end");
     return val;
 }
+
+/* 读数据
+ * @return 成功:count, -1count太大，-2通讯失败, -3拷贝失败
+ */
+static ssize_t mas_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos) {
+    int val, ret = 0;
+   // MALOGD("start");
+    ret = mas_sync(stxb, srxb, count);
+    if(ret) {
+        MALOGW("mas_sync failed.");
+        return -2;
+    }
+    ret = copy_to_user(buf, srxb, count);
+    if(!ret) val = count;
+    else {
+        val = -3;
+        MALOGW("copy_to_user failed.");
+    }
+  //  MALOGD("end.");
+    return val;
+}
+#endif
+
 void * kernel_memaddr = NULL;
 unsigned long kernel_memesize = 0;
 
@@ -526,8 +535,10 @@ static unsigned int mas_poll(struct file *filp, struct poll_table_struct *wait) 
 /*---------------------------------- fops ------------------------------------*/
 static const struct file_operations sfops = {
     .owner = THIS_MODULE,
+#ifndef USE_PLATFORM_DRIVE
     .write = mas_write,
     .read = mas_read,
+#endif
     .unlocked_ioctl = mas_ioctl,
     .mmap = mas_mmap,
     //.ioctl = mas_ioctl,
@@ -543,56 +554,64 @@ static const struct file_operations sfops = {
 
 static int init_file_node(void)
 {
-    	int ret;
-	    //MALOGF("start");
-    	ret = alloc_chrdev_region(&sdev->idd, 0, 1, MA_CHR_DEV_NAME);
-    	if(ret < 0)
-    	{
-        	MALOGW("alloc_chrdev_region error!");
-        	return -1;
-    	}
-    	sdev->chd = cdev_alloc();
-   	    if (!sdev->chd)
-    	{
-        	MALOGW("cdev_alloc error!");
-        	return -1;
-    	}
-    	sdev->chd->owner = THIS_MODULE;
-    	sdev->chd->ops = &sfops;
-    	cdev_add(sdev->chd, sdev->idd, 1);
-	    sdev->cls = class_create(THIS_MODULE, MA_CHR_DEV_NAME);
-	    if (IS_ERR(sdev->cls)) {
-		  MALOGE("class_create");
-		  return -1;
-	    }
-	    sdev->dev = device_create(sdev->cls, NULL, sdev->idd, NULL, MA_CHR_FILE_NAME);
-	    ret = IS_ERR(sdev->dev) ? PTR_ERR(sdev->dev) : 0;
-	    if(ret){
-	       	MALOGE("device_create");
-	    }
-	    //MALOGF("end");
-        return 0;
+    int ret;
+    //MALOGF("start");
+    ret = alloc_chrdev_region(&sdev->idd, 0, 1, MA_CHR_DEV_NAME);
+    if(ret < 0)
+    {
+        MALOGW("alloc_chrdev_region error!");
+        return -1;
+    }
+
+    sdev->chd = cdev_alloc();
+    if (!sdev->chd)
+    {
+        MALOGW("cdev_alloc error!");
+        return -1;
+    }
+
+    sdev->chd->owner = THIS_MODULE;
+    sdev->chd->ops = &sfops;
+
+    cdev_add(sdev->chd, sdev->idd, 1);
+
+    sdev->cls = class_create(THIS_MODULE, MA_CHR_DEV_NAME);
+    if (IS_ERR(sdev->cls)) {
+        MALOGE("class_create");
+        return -1;
+    }
+
+    sdev->dev = device_create(sdev->cls, NULL, sdev->idd, NULL, MA_CHR_FILE_NAME);
+    ret = IS_ERR(sdev->dev) ? PTR_ERR(sdev->dev) : 0;
+    if(ret){
+        MALOGE("device_create");
+    }
+    //MALOGF("end");
+    return 0;
 }
 
 static int deinit_file_node(void)
 {
-   cdev_del(sdev->chd);
-   sdev->chd = NULL;
-   kfree(sdev->chd);
-   device_destroy(sdev->cls, sdev->idd);
-   unregister_chrdev_region(sdev->idd, 1);
-   class_destroy(sdev->cls);
+    cdev_del(sdev->chd);
+    sdev->chd = NULL;
+    kfree(sdev->chd);
+    device_destroy(sdev->cls, sdev->idd);
+    unregister_chrdev_region(sdev->idd, 1);
+    class_destroy(sdev->cls);
     return 0;
 }
 
 static int init_interrupt(void)
 {
     const char*tname = MA_EINT_NAME;
+    int ret = 0;
+
     irq = mas_get_irq();
     if(irq<=0){
         ret = irq;
         MALOGE("mas_get_irq");
     }
+
 #ifdef DOUBLE_EDGE_IRQ
 	ret = request_irq(irq, mas_interrupt, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, tname, NULL);
 #else
@@ -601,23 +620,25 @@ static int init_interrupt(void)
     if(ret<0){
         MALOGE("request_irq");
     }
+
     return ret;
 }
+
+
 static int deinit_interrupt(void)
 {
-  if(irq)
+    if(irq)
     {disable_irq(irq);
-      free_irq(irq, NULL);
+        free_irq(irq, NULL);
     }
     return 0;
 }
+
 
 static int init_vars(void)
 {
     sdev = kmalloc(sizeof(struct fprint_dev), GFP_KERNEL);
     smas = kmalloc(sizeof(struct fprint_spi), GFP_KERNEL);
-    stxb = kmalloc(FBUF, GFP_KERNEL);
-    srxb = kmalloc(FBUF, GFP_KERNEL);
     if (sdev==NULL || smas==NULL ) {
         MALOGW("smas kmalloc failed.");
         if(sdev!=NULL) kfree(sdev);
@@ -625,10 +646,15 @@ static int init_vars(void)
         return -ENOMEM;
     }
 
-    printk("[%s][%d]smas %p \r\n",__func__,__LINE__, smas);
-    printk("[%s][%d]sdev %p \r\n",__func__,__LINE__, sdev);
-    printk("[%s][%d]stxb %p \r\n",__func__,__LINE__, stxb);
-    printk("[%s][%d]srxb %p \r\n",__func__,__LINE__, srxb);
+    stxb = kmalloc(FBUF, GFP_KERNEL);
+    srxb = kmalloc(FBUF, GFP_KERNEL);
+    if (stxb==NULL || srxb==NULL ) {
+        MALOGW("stxb  srxb kmalloc failed.");
+        if(stxb!=NULL) kfree(stxb);
+        if(srxb!=NULL) kfree(srxb);
+        return -ENOMEM;
+    }
+
 
 #ifdef CONFIG_PM_WAKELOCKS
 	gIntWakeLock = wakeup_source_register(NULL, "microarray_int_wakelock");
@@ -655,13 +681,23 @@ static int deinit_vars(void)
     wake_lock_destroy(&gIntWakeLock);
     wake_lock_destroy(&gProcessWakeLock);
 #endif
-   if(sdev!=NULL) kfree(sdev);
-   if(smas!=NULL) kfree(smas);
- //  if(stxb!=NULL) kfree(stxb);
- //  if(srxb!=NULL) kfree(srxb);
+    if(sdev!=NULL)
+        kfree(sdev);
+
+    if(smas!=NULL)
+        kfree(smas);
+
+    if(stxb!=NULL)
+        kfree(stxb);
+
+    if(srxb!=NULL)
+        kfree(srxb);
+
     return 0;
 }
 
+
+#ifndef USE_PLATFORM_DRIVE
 static int init_spi(struct spi_device *spi){
     msleep(50);
     smas->spi = spi;
@@ -673,16 +709,21 @@ static int init_spi(struct spi_device *spi){
     return 0;
 }
 
+
 static int deinit_spi(struct spi_device *spi){
     smas->spi = NULL;
     mas_disable_spi_clock(spi);
     return 0;
 }
+#endif
+
+
 /*
  * init_connect function to check whether the chip is microarray's
  * @return 0 not 1 yes
  * param void
  */
+#ifdef REE
 int init_connect(void){
     int i;
 	int res = 0;
@@ -721,6 +762,7 @@ int init_connect(void){
 int deinit_connect(void){
     return 0;
 }
+#endif
 
 static int mas_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data){
 	struct fb_event *evdata = data;
@@ -748,72 +790,96 @@ static int init_notifier_call(void);
 static int deinit_notifier_call(void);
 
 static int init_notifier_call(){
-	notifier.notifier_call = mas_fb_notifier_callback;
-	fb_register_client(&notifier);
-	is_screen_on = 1;
-	return 0;
+    notifier.notifier_call = mas_fb_notifier_callback;
+    fb_register_client(&notifier);
+    is_screen_on = 1;
+    return 0;
 }
 static int deinit_notifier_call(){
 	fb_unregister_client(&notifier);
 	return 0;
 }
 
+#ifdef USE_PLATFORM_DRIVE
+int mas_probe(struct platform_device *spi){
+#else
 int mas_probe(struct spi_device *spi) {
-   int ret;
+#endif
+    int ret;
+    pr_err("mas_probe,by eric.wang\n");
 
     ret= mas_qcm_platform_init(spi);
+    pr_err("mas_qcm_platform_init:ret=%d,by eric.wang\n",ret);
     if(ret)
-	goto err0;
+        goto err0;
 
     ret = init_vars();
+    pr_err("init_vars:ret=%d,by eric.wang\n",ret);
     if(ret){
         goto err1;
     }
 
     ret = init_interrupt();
+    pr_err("init_interrupt:ret=%d,by eric.wang\n",ret);
     if(ret){
         goto err2;
     }
 
     ret = init_file_node();
+    pr_err("init_file_node:ret=%d,by eric.wang\n",ret);
     if(ret){
         goto err3;
     }
 
+#ifndef USE_PLATFORM_DRIVE
     ret = init_spi(spi);
+    pr_err("init_spi:ret=%d,by eric.wang\n",ret);
     if(ret){
         goto err4;
     }
+#endif
+
 #ifdef REE
     ret = init_connect();
 #elif defined TEE
-	ret = 1;
+    ret = 1;
 #endif
     if(ret == 0){//not chip
         compatible = 0;
-	 pr_info("%s:init_connect failed.\n", __func__);
+        pr_info("%s:init_connect failed.\n", __func__);
+#ifdef USE_PLATFORM_DRIVE
+        goto err3;
+#else
         goto err5;
+#endif
     }
     else
-	pr_info("%s:init_connect successfully.\n", __func__);
+        pr_err("%s:init_connect successfully.\n", __func__);
+
     mas_set_input();
     MALOGF("end");
+
     ret = init_notifier_call();
     if(ret != 0){
-		ret = -ENODEV;
-		goto err6;
-	}
+        ret = -ENODEV;
+        goto err6;
+    }
+
     mas_set_wakeup(spi);
     //Fingerprint_name="Microarray_A121N";
-    pr_info("%s:completed.\n", __func__);
+    pr_err("%s:completed.\n", __func__);
     return ret;
 
 err6:
     deinit_notifier_call();
+#ifdef REE
 err5:
     deinit_connect();
+#endif
+#ifndef USE_PLATFORM_DRIVE
 err4:
     deinit_spi(spi);
+#endif
 err3:
     deinit_file_node();
 err2:
@@ -825,7 +891,11 @@ err0:
     return -EINVAL;
 }
 
+#ifdef USE_PLATFORM_DRIVE
+int mas_remove(struct platform_device *spi) {
+#else
 int mas_remove(struct spi_device *spi) {
+#endif
     deinit_file_node();
     deinit_interrupt();
     deinit_vars();

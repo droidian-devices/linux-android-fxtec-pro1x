@@ -114,6 +114,7 @@ struct cam_sensor_ctrl_t {
 	//add by hzt 2021-9-4 for control external gpio
 	int imx582_avdd18_gpio;
 	//add by hzt 2021-9-4 for control external gpio
+    int imx582_avdd28_gpio;
 };
 
 #endif /* _CAM_SENSOR_DEV_H_ */

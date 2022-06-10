@@ -1,24 +1,26 @@
 /* Copyright (C) MicroArray
  * MicroArray Fprint Driver Code * madev.h
  * Date: 2017-3-9
- * Version: v4.0.05 
+ * Version: v4.0.05
  * Author: guq
  * Contact: guq@microarray.com.cn
  */
 
 #ifndef __MADEV_H_
 #define __MADEV_H_
- 
+
 
 //settings macro
 #define QUALCOMM   			//[MTK|QUALCOMM|SPRD]
 
-#define REE	//[TEE|REE] //select platform
+#define TEE	//[TEE|REE] //select platform
 
 #define MALOGD_LEVEL	KERN_EMERG     //[KERN_DEBUG|KERN_EMERG] usually, the debug level is used for the release version
 
-#define MA_CHR_FILE_NAME 	"madev0"  //do not neeed modify usually 
-#define MA_CHR_DEV_NAME 	"madev"	  //do not neeed modify usually 
+#define MA_CHR_FILE_NAME 	"madev0"  //do not neeed modify usually
+#define MA_CHR_DEV_NAME 	"madev"	  //do not neeed modify usually
+
+#define USE_PLATFORM_DRIVE
 
 #define MA_EINT_NAME            "afs121_irq"
 
@@ -120,12 +122,12 @@
  //fprint_spi struct use to save the value
 struct fprint_spi {
     u8 do_what;             //工作内容
-    u8 f_wake;              //唤醒标志  
-    int value;              
+    u8 f_wake;              //唤醒标志
+    int value;
     volatile u8 f_irq;      //中断标志
     volatile u8 u1_flag;    //reserve for ours thread interrupt
     volatile u8 u2_flag;    //reserve for ours thread interrupt
-    volatile u8 f_repo;     //上报开关  
+    volatile u8 f_repo;     //上报开关
     spinlock_t spi_lock;
     struct spi_device *spi;
     struct list_head dev_entry;
@@ -146,8 +148,8 @@ struct fprint_spi {
 //end
 
 struct fprint_dev {
-    dev_t idd;          
-    int major;          
+    dev_t idd;
+    int major;
     int minor;
     struct cdev *chd;
     struct class *cls;
@@ -157,21 +159,27 @@ struct fprint_dev {
 
 //function define
 
-//extern the settings.h function 
+//extern the settings.h function
+#ifdef USE_PLATFORM_DRIVE
+extern int mas_qcm_platform_init(struct platform_device *spi);
+extern int mas_qcm_platform_uninit(struct platform_device *spi);
+extern void mas_set_wakeup(struct platform_device *spi);
+#else
 extern int mas_qcm_platform_init(struct spi_device *spi);
 extern int mas_qcm_platform_uninit(struct spi_device *spi);
-extern int mas_fingerprint_power(bool flags);
-
 extern void mas_select_transfer(struct spi_device *spi, int len);
-extern int mas_finger_get_gpio_info(struct platform_device *pdev);
-extern int mas_finger_set_gpio_info(int cmd);
 extern void mas_enable_spi_clock(struct spi_device *spi);
 extern void mas_disable_spi_clock(struct spi_device *spi);
-extern unsigned int mas_get_irq(void);
-extern int mas_get_platform(void);
-extern int mas_remove_platform(void);
 extern void ma_spi_change(struct spi_device *spi, unsigned int speed, int flag);
 extern void mas_set_wakeup(struct spi_device *spi);
+#endif
+
+extern int mas_fingerprint_power(bool flags);
+extern int mas_finger_get_gpio_info(struct platform_device *pdev);
+extern int mas_finger_set_gpio_info(int cmd);
+extern unsigned int mas_get_irq(void);
+extern int mas_get_platform(void);
+extern int mas_remove_platform(void);\
 extern int mas_get_interrupt_gpio(unsigned int index);
 //end
 
@@ -185,7 +193,7 @@ extern int mas_get_interrupt_gpio(unsigned int index);
 
 
 /**
- *	the old ioctl command, compatible for the old version 
+ *	the old ioctl command, compatible for the old version
  */
 //ioctl cmd
 #ifdef COMPATIBLE_VERSION3

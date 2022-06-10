@@ -22,13 +22,15 @@ struct mas_platform_data {
 //kingsun/zlc:
 	int clk_enabled;
 	struct clk *core_clk;
-       struct clk *iface_clk;
+    struct clk *iface_clk;
 	unsigned int int_irq;
 //end
 };
 
 struct mas_platform_data *mas_pdata;
 int first_int_after_suspend=0;               //kingsun/zlc:
+
+
 #ifdef CONFIG_OF
 /* -------------------------------------------------------------------- */
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -36,10 +38,12 @@ int mas_suspend(struct spi_device *spi, pm_message_t mesg)
 {
     printk("%s start\n",__func__);
     if (device_may_wakeup(&spi->dev))
-	 enable_irq_wake(mas_pdata->int_irq);
+        enable_irq_wake(mas_pdata->int_irq);
 
+#ifndef USE_PLATFORM_DRIVE
     printk("mas_ioctl_clk_disable\n");
     mas_disable_spi_clock(spi);
+#endif //USE_PLATFORM_DRIVE
     first_int_after_suspend=1;
     printk("%s end\n",__func__);
     return 0;
@@ -49,18 +53,27 @@ int mas_suspend(struct spi_device *spi, pm_message_t mesg)
 /* -------------------------------------------------------------------- */
 int mas_resume(struct spi_device *spi)
 {
-   printk("%s start\n",__func__);
-   if (device_may_wakeup(&spi->dev))
-	disable_irq_wake(mas_pdata->int_irq);
+    printk("%s start\n",__func__);
+    if (device_may_wakeup(&spi->dev))
+        disable_irq_wake(mas_pdata->int_irq);
 
+#ifndef USE_PLATFORM_DRIVE
     printk("mas_enable_spi_clock\n");
     mas_enable_spi_clock(spi);
+#endif //USE_PLATFORM_DRIVE
     printk("%s end\n",__func__);
     return 0;
 }
+
+
 #else
+
+
 int mas_suspend(struct device *dev)
 {
+#ifdef USE_PLATFORM_DRIVE
+    printk("%s start\n",__func__);
+#else
     struct spi_device *spi = NULL;
     printk("%s start\n",__func__);
 
@@ -69,20 +82,28 @@ int mas_suspend(struct device *dev)
         printk("%s get spi device failed\n",__func__);
         return -1;
     }
+#endif //USE_PLATFORM_DRIVE
 
     if (device_may_wakeup(dev))
-	 enable_irq_wake(mas_pdata->int_irq);
+        enable_irq_wake(mas_pdata->int_irq);
 
+#ifndef USE_PLATFORM_DRIVE
     printk("mas_ioctl_clk_disable\n");
     mas_disable_spi_clock(spi);
+#endif //USE_PLATFORM_DRIVE
     first_int_after_suspend=1;
     printk("%s end\n",__func__);
     return 0;
 }
 
+
 int mas_resume(struct device *dev)
 {
+#ifdef USE_PLATFORM_DRIVE
+    printk("%s start\n",__func__);
+#else
     struct spi_device *spi = NULL;
+
     printk("%s start\n",__func__);
 
     spi = to_spi_device(dev);
@@ -90,60 +111,75 @@ int mas_resume(struct device *dev)
         printk("%s get spi device failed\n",__func__);
         return -1;
     }
+#endif //USE_PLATFORM_DRIVE
 
-   if (device_may_wakeup(dev))
-	disable_irq_wake(mas_pdata->int_irq);
+    if (device_may_wakeup(dev))
+        disable_irq_wake(mas_pdata->int_irq);
 
+#ifndef USE_PLATFORM_DRIVE
     printk("mas_enable_spi_clock\n");
     mas_enable_spi_clock(spi);
+#endif //USE_PLATFORM_DRIVE
+
     printk("%s end\n",__func__);
     return 0;
 }
-#endif
+#endif //CONFIG_HAS_EARLYSUSPEND
 
 
 static struct of_device_id mas_of_match[] = {
-	{.compatible = "microarray,fingerprint",},
-	{}
+    {.compatible = "microarray,fingerprint",},
+    {}
 };
 
 MODULE_DEVICE_TABLE(of, mas_of_match);
 
 #ifndef CONFIG_HAS_EARLYSUSPEND
 const struct dev_pm_ops mas_pm_ops = {
-	.suspend = mas_suspend,
-	.resume = mas_resume,
+    .suspend = mas_suspend,
+    .resume = mas_resume,
 };
-#endif
-#endif
+#endif //CONFIG_HAS_EARLYSUSPEND
 
+#endif//CONFIG_OF
+
+
+#ifndef USE_PLATFORM_DRIVE
 struct spi_device_id sdev_id = {MA_DRV_NAME, 0};
+#endif //USE_PLATFORM_DRIVE
+
+#ifdef USE_PLATFORM_DRIVE
+struct platform_driver sdrv = {
+#else
 struct spi_driver sdrv = {
-        .driver = {
-            .name = MA_DRV_NAME,
-            //.bus = &spi_bus_type,
-            .owner = THIS_MODULE,
+#endif //USE_PLATFORM_DRIVE
+    .driver = {
+        .name = MA_DRV_NAME,
+        //.bus = &spi_bus_type,
+        .owner = THIS_MODULE,
 #ifndef CONFIG_HAS_EARLYSUSPEND
-			.pm = &mas_pm_ops,
-#endif
+        .pm = &mas_pm_ops,
+#endif //CONFIG_HAS_EARLYSUSPEND
 #ifdef CONFIG_OF
-		    .of_match_table = mas_of_match,
-#endif
-        },
-        .id_table = &sdev_id,
-        .probe = mas_probe,
-        .remove = mas_remove,
+        .of_match_table = mas_of_match,
+#endif  //CONFIG_OF
+    },
+#ifndef USE_PLATFORM_DRIVE
+    .id_table = &sdev_id,
+#endif //USE_PLATFORM_DRIVE
+    .probe = mas_probe,
+    .remove = mas_remove,
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	    .suspend = mas_suspend,
-        .resume = mas_resume,
-#endif
+    .suspend = mas_suspend,
+    .resume = mas_resume,
+#endif //CONFIG_HAS_EARLYSUSPEND
 };
 //driver end
 
+#ifndef USE_PLATFORM_DRIVE
 /**
  *  the spi struct date start,for getting the spi_device to set the spi clock enable end
  */
-
 
 void mas_select_transfer(struct spi_device *spi, int len) {
    return ;
@@ -246,7 +282,8 @@ static int mas_ioctl_clk_init(struct spi_device *spi, struct mas_platform_data *
 }
 
 static int mas_ioctl_clk_uninit(struct mas_platform_data *data)
-{    return 0;     //kingsun/zlc: bypass the operation of spi clock
+{
+    return 0;     //kingsun/zlc: bypass the operation of spi clock
     pr_info("%s: enter\n", __func__);
 
     if (!IS_ERR_OR_NULL(data->core_clk)) {
@@ -290,7 +327,8 @@ static int mas_ioctl_clk_enable(struct mas_platform_data *data)
 }
 
 static int mas_ioctl_clk_disable(struct mas_platform_data *data)
-{    return 0;     //kingsun/zlc: bypass the operation of spi clock
+{
+    return 0;     //kingsun/zlc: bypass the operation of spi clock
     if (!data->clk_enabled)
         return 0;
 
@@ -300,11 +338,15 @@ static int mas_ioctl_clk_disable(struct mas_platform_data *data)
 
     return 0;
 }
-
+#endif  //USE_PLATFORM_DRIVE
 
 int mas_get_platform(void) {
     int ret;
+#ifdef USE_PLATFORM_DRIVE
+    ret = platform_driver_register(&sdrv);
+#else
 	ret = spi_register_driver(&sdrv);
+#endif
 	pr_err("MAFP_ spi_register_driver ret = %d",ret);
 
 	if(ret) {
@@ -314,7 +356,11 @@ int mas_get_platform(void) {
 }
 
 int mas_remove_platform(void){
-	spi_unregister_driver(&sdrv);
+#ifdef USE_PLATFORM_DRIVE
+    platform_driver_unregister(&sdrv);
+#else
+    spi_unregister_driver(&sdrv);
+#endif
 	return 0;
 }
 
@@ -447,34 +493,44 @@ err_irq_gpio_req:
 	return rc;
 }
 
-
+#ifdef USE_PLATFORM_DRIVE
+int mas_qcm_platform_uninit(struct platform_device *spi)
+#else
 int mas_qcm_platform_uninit(struct spi_device *spi)
-{ int ret=0;
+#endif
+{
+    int ret=0;
+    #ifndef USE_PLATFORM_DRIVE
     mas_ioctl_clk_uninit(mas_pdata);
+    #endif
     mas_fingerprint_power(false);
+
     #if 0
-   if(mas_pdata->vcc_io_l6)
-     regulator_put(mas_pdata->vcc_io_l6);
-     #endif
-   mas_gpio_configure(false);
-   mas_pdata->int_irq=0;
-   kfree(mas_pdata);
-   return ret;
+    if(mas_pdata->vcc_io_l6)
+    regulator_put(mas_pdata->vcc_io_l6);
+    #endif
+    mas_gpio_configure(false);
+    mas_pdata->int_irq=0;
+    kfree(mas_pdata);
+    return ret;
 }
 
-
+#ifdef USE_PLATFORM_DRIVE
+int mas_qcm_platform_init(struct platform_device *spi)
+#else
 int mas_qcm_platform_init(struct spi_device *spi)
+#endif
 {
     int ret=0;
     mas_pdata = kmalloc(sizeof(struct mas_platform_data), GFP_KERNEL);
     if (mas_pdata == NULL) {
 	    pr_info("%s:Failed to allocate buffer\n", __func__);
 	    ret=-ENOMEM;
-	    goto err_devm_kzalloc;
+	    goto fingeriprnt_err_devm_kzalloc;
     }
     ret = mas_get_of_pdata(&spi->dev);
     if(ret<0)
-   	    goto get_of_pdata_err;
+   	    goto fingeriprnt_get_of_pdata_err;
 
     ret = mas_gpio_configure(true);
     if(ret<0)
@@ -484,26 +540,32 @@ int mas_qcm_platform_init(struct spi_device *spi)
     if(ret<0)
    	    goto fingeriprnt_power_err;
 
+    #ifndef USE_PLATFORM_DRIVE
     if (mas_ioctl_clk_init(spi, mas_pdata))
        goto fingeriprnt_power_err;
 
     if (mas_ioctl_clk_enable(mas_pdata))
         goto fingeriprnt_clk_enable_failed;
     spi_clock_set(mas_pdata, 9600000);
+    #endif
+
     return ret;
 
+#ifndef USE_PLATFORM_DRIVE
 fingeriprnt_clk_enable_failed:
    mas_ioctl_clk_uninit(mas_pdata);
+#endif
 fingeriprnt_power_err:
    //if(mas_pdata->vcc_io_l6)
       //regulator_put(mas_pdata->vcc_io_l6);
 fingeriprnt_gpio_configure_err:
-get_of_pdata_err:
+fingeriprnt_get_of_pdata_err:
    kfree(mas_pdata);
-err_devm_kzalloc:
+fingeriprnt_err_devm_kzalloc:
    return ret;
 }
 
+#ifndef USE_PLATFORM_DRIVE
 void mas_enable_spi_clock(struct spi_device *spi)
 {
     mas_ioctl_clk_enable(mas_pdata);
@@ -513,19 +575,22 @@ void mas_disable_spi_clock(struct spi_device *spi)
 {
     mas_ioctl_clk_disable(mas_pdata);
 }
-
+#endif
 
 unsigned int mas_get_irq(void){
-  unsigned int irq=0;
-  irq =  gpio_to_irq(mas_pdata->irq_gpio);
-  if(irq)
-      printk("mas_get_irq: %d\n",irq);
-  mas_pdata->int_irq=irq;
-  return irq;
+    unsigned int irq=0;
+    irq =  gpio_to_irq(mas_pdata->irq_gpio);
+    if(irq)
+        printk("mas_get_irq: %d\n",irq);
+    mas_pdata->int_irq=irq;
+    return irq;
 }
 
-
+#ifdef USE_PLATFORM_DRIVE
+void mas_set_wakeup(struct platform_device *spi)
+#else
 void mas_set_wakeup(struct spi_device *spi)
+#endif
 {
     device_init_wakeup(&spi->dev, 1);
 }
