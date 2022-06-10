@@ -8,11 +8,11 @@
 #include "cam_mem_mgr.h"
 #include "cam_res_mgr_api.h"
 
-	
+
 		//add by hzt 2021-7-1 for debug
 //#undef CAM_DBG
 //#define CAM_DBG(fmt,args...) CAM_ERR(fmt,##args)
-	
+
 
 
 #define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
@@ -1774,8 +1774,9 @@ int msm_cam_sensor_handle_reg_gpio(int seq_type,
 
 	//add by hzt 2021-9-4 for control external gpio
 	//s_ctrl.imx582_avdd18_gpio = of_get_named_gpio(s_ctrl->of_node, "imx582_avdd18,pwr-gpio", 0);
+    //s_ctrl.imx582_avdd28_gpio = of_get_named_gpio(s_ctrl->of_node, "imx582_avdd28,pwr-gpio", 0);
 	//add by hzt 2021-9-4  control external gpio
-	
+
 
 	return 0;
 }
@@ -1892,7 +1893,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 	CAM_DBG(CAM_SENSOR, "power setting size: %d", ctrl->power_setting_size);
 
 
-	
+
 
 
 
@@ -2058,8 +2059,8 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 
 			//add by hzt 2021-9-4 for control external gpio
 			if(power_setting->seq_type==SENSOR_VANA)
-			{	
-				
+			{
+
 				CAM_DBG(CAM_SENSOR, "before to request imx582_avdd18_gpio:%d,,\n",ctrl->imx582_avdd18_gpio);
 				ret = gpio_request(ctrl->imx582_avdd18_gpio, "imx582_avdd18_gpio");
 				if (ret < 0) {
@@ -2068,6 +2069,15 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				//gpio_set_value_cansleep(ctrl->imx582_avdd18_gpio, 1);
 				gpio_direction_output(ctrl->imx582_avdd18_gpio,1);
 				gpio_free(ctrl->imx582_avdd18_gpio);
+
+                CAM_DBG(CAM_SENSOR, "before to request imx582_avdd28_gpio:%d,,\n",ctrl->imx582_avdd28_gpio);
+				ret = gpio_request(ctrl->imx582_avdd28_gpio, "imx582_avdd28_gpio");
+				if (ret < 0) {
+					CAM_DBG(CAM_SENSOR, "Failed to request imx582_avdd28_gpio:%d,,\n",ctrl->imx582_avdd28_gpio);
+				}
+				//gpio_set_value_cansleep(ctrl->imx582_avdd28_gpio, 1);
+				gpio_direction_output(ctrl->imx582_avdd28_gpio,1);
+				gpio_free(ctrl->imx582_avdd28_gpio);
 			}
 	        //add by hzt 2021-9-4  control external gpio
 
@@ -2356,8 +2366,7 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 
 			//add by hzt 2021-9-4 for control external gpio
 			if(pd->seq_val==SENSOR_VANA)
-			{	
-				
+			{
 				CAM_DBG(CAM_SENSOR, "before to request imx582_avdd18_gpio:%d,,\n",ctrl->imx582_avdd18_gpio);
 				ret = gpio_request(ctrl->imx582_avdd18_gpio, "imx582_avdd18_gpio");
 				if (ret < 0) {
@@ -2366,6 +2375,15 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 				//gpio_set_value_cansleep(ctrl->imx582_avdd18_gpio, 0);
 				gpio_direction_output(ctrl->imx582_avdd18_gpio,0);
 				gpio_free(ctrl->imx582_avdd18_gpio);
+
+                CAM_DBG(CAM_SENSOR, "before to request imx582_avdd28_gpio:%d,,\n",ctrl->imx582_avdd28_gpio);
+				ret = gpio_request(ctrl->imx582_avdd28_gpio, "imx582_avdd28_gpio");
+				if (ret < 0) {
+					CAM_DBG(CAM_SENSOR, "Failed to request imx582_avdd28_gpio:%d,,\n",ctrl->imx582_avdd28_gpio);
+				}
+				//gpio_set_value_cansleep(ctrl->imx582_avdd28_gpio, 0);
+				gpio_direction_output(ctrl->imx582_avdd28_gpio,0);
+				gpio_free(ctrl->imx582_avdd28_gpio);
 			}
 	        //add by hzt 2021-9-4  control external gpio
 

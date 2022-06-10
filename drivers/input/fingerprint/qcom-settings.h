@@ -46,6 +46,7 @@
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 
+#include "madev.h"
 
 //macro settings
 #define MA_DRV_NAME             "madev"
@@ -53,10 +54,18 @@
 #define MA_DTS_NAME            "mediatek,hct_finger"
 
 #define MA_EINT_DTS_NAME        "mediatek,hct_finger"
+
+
 //macro settings end
 
+#ifdef USE_PLATFORM_DRIVE
+extern int mas_probe(struct platform_device *spi);
+extern int mas_remove(struct platform_device *spi);
+#else
 extern int mas_probe(struct spi_device *spi);
 extern int mas_remove(struct spi_device *spi);
+#endif
+
 
 /* add for spi cls ctl start */
 struct mt_spi_t {

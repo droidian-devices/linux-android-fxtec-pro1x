@@ -3589,6 +3589,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if (!uart_console(uport))
 		spin_lock_init(&dev_port->rx_lock);
 
+	/*
+	 * Earlyconsole to kernel console will switch happen after
+	 * uart_add_one_port. Hence marking is_earlycon to false here.
+	 */
+	if (is_console)
+		is_earlycon = false;
+
 	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: port:%s irq:%d\n", __func__,
 		    uport->name, uport->irq);
 

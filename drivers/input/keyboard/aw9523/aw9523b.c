@@ -143,14 +143,14 @@ static struct input_dev *aw9523b_input_dev = NULL;
 static struct i2c_client *g_client = NULL;
 
 static const unsigned short  key_array[Y_NUM][X_NUM] = {
-	{ 0xFFFF,        KEY_H,         KEY_B,          KEY_7,        KEY_UP,        KEY_ENTER,  KEY_Y,     KEY_COMMA       },
-	{ KEY_3,         KEY_S,         KEY_Z,          KEY_M,        KEY_I,         KEY_9,      KEY_W,     KEY_J           },
-	{ KEY_LEFT,      KEY_G,         KEY_V,          KEY_6,        KEY_RIGHT,     KEY_DELETE, KEY_T,     KEY_DOT         },
-	{ KEY_SYM,       KEY_A,         KEY_RIGHTBRACE, KEY_HOMEPAGE, KEY_P,         KEY_MINUS,  KEY_Q,     KEY_L           },
-	{ KEY_BACKSPACE, KEY_D,         KEY_X,          KEY_K,        KEY_SEMICOLON, KEY_EQUAL,  KEY_E,     KEY_APOSTROPHE  },
-	{ KEY_CAPSLOCK,  KEY_BACKSLASH, KEY_LEFTBRACE,  KEY_DOWN,     KEY_O,         KEY_0,      KEY_GRAVE, KEY_K           },
-	{ KEY_SPACE,     KEY_F,         KEY_C,          KEY_N,        KEY_U,         KEY_8,      KEY_R,     KEY_5           },
-	{ KEY_ESC,      KEY_1,         0xFFFF,           0xFFFF,         KEY_2,         KEY_4,      KEY_TAB,   0xFFFF            }
+	{ 0xFFFF,        KEY_J,         KEY_N,          KEY_7,        KEY_UP,        KEY_ENTER,  KEY_U,     KEY_DOT       },
+	{ KEY_3,         KEY_D,         KEY_X,          KEY_COMMA,    KEY_O,         KEY_9,      KEY_E,     KEY_K           },
+	{ KEY_LEFT,      KEY_H,         KEY_B,          KEY_6,        KEY_RIGHT,     KEY_DELETE, KEY_Y,     KEY_SLASH         },
+	{ KEY_SYM,       KEY_S,         KEY_Z,          KEY_HOMEPAGE, KEY_LEFTBRACE, KEY_MINUS,  KEY_W,     KEY_SEMICOLON           },
+	{ KEY_BACKSPACE, KEY_F,         KEY_C,          0xFFFF,       KEY_RIGHTBRACE,KEY_EQUAL,  KEY_R,     KEY_APOSTROPHE  },
+	{ KEY_CAPSLOCK,  KEY_A,         KEY_GRAVE,      KEY_DOWN,     KEY_P,         KEY_0,      KEY_Q,     KEY_L           },
+	{ KEY_SPACE,     KEY_G,         KEY_V,          KEY_M,        KEY_I,         KEY_8,      KEY_T,     KEY_5           },
+	{ KEY_ESC,       KEY_1,         0xFFFF,         0xFFFF,       KEY_2,         KEY_4,      KEY_TAB,   0xFFFF            }
 };
 
 // This macro sets the interval between polls of the key matrix for ghosted keys (in milliseconds).
@@ -1034,11 +1034,8 @@ static int aw9523b_check_dt(struct device_node *np)
 {
 	int i;
 	int count;
-
-
 	struct device_node *node;
 	struct drm_panel *panel;
-
 
 	//需要在屏dts初始化后才能找到panel的字段
 	count = of_count_phandle_with_args(np, "panel", NULL);
