@@ -29,6 +29,44 @@
 #define PLL_BYPASSNL		BIT(1)
 #define PLL_RESET_N		BIT(2)
 
+static void spm_event(void __iomem *base, u32 offset, u32 bit, bool enable)
+{
+	uint32_t val;
+
+	if (!base)
+		return;
+
+	if (enable) {
+		/* L2_SPM_FORCE_EVENT_EN */
+		val = readl_relaxed(base + offset);
+		val |= BIT(bit);
+		writel_relaxed(val, (base + offset));
+		/* Ensure that the write above goes through. */
+		mb();
+
+		/* L2_SPM_FORCE_EVENT */
+		val = readl_relaxed(base + offset + 0x4);
+		val |= BIT(bit);
+		writel_relaxed(val, (base + offset + 0x4));
+		/* Ensure that the write above goes through. */
+		mb();
+	} else {
+		/* L2_SPM_FORCE_EVENT */
+		val = readl_relaxed(base + offset + 0x4);
+		val &= ~BIT(bit);
+		writel_relaxed(val, (base + offset + 0x4));
+		/* Ensure that the write above goes through. */
+		mb();
+
+		/* L2_SPM_FORCE_EVENT_EN */
+		val = readl_relaxed(base + offset);
+		val &= ~BIT(bit);
+		writel_relaxed(val, (base + offset));
+		/* Ensure that the write above goes through. */
+		mb();
+	}
+}
+
 static int clk_pll_enable(struct clk_hw *hw)
 {
 	struct clk_pll *pll = to_clk_pll(hw);
@@ -75,6 +113,9 @@ static void clk_pll_disable(struct clk_hw *hw)
 	struct clk_pll *pll = to_clk_pll(hw);
 	u32 mask;
 	u32 val;
+
+	spm_event(pll->spm_ctrl.spm_base, pll->spm_ctrl.offset,
+			pll->spm_ctrl.event_bit, true);
 
 	regmap_read(pll->clkr.regmap, pll->mode_reg, &val);
 	/* Skip if in FSM mode */
@@ -138,7 +179,8 @@ clk_pll_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
 
 	f = find_freq(pll->freq_tbl, req->rate);
 	if (!f)
-		req->rate = clk_pll_recalc_rate(hw, req->best_parent_rate);
+		req->rate = DIV_ROUND_UP_ULL(req->rate, req->best_parent_rate)
+			* req->best_parent_rate;
 	else
 		req->rate = f->freq;
 
@@ -175,12 +217,38 @@ clk_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long p_rate)
 	return 0;
 }
 
+static void clk_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_pll *pll = to_clk_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_M_VAL", 0x8},
+		{"PLL_N_VAL", 0xC},
+		{"PLL_USER_CTL", 0x10},
+		{"PLL_CONFIG_CTL", 0x14},
+		{"PLL_STATUS_CTL", 0x1C},
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->mode_reg + data[i].offset,
+									&val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data[i].name, val);
+	}
+}
+
 const struct clk_ops clk_pll_ops = {
 	.enable = clk_pll_enable,
 	.disable = clk_pll_disable,
 	.recalc_rate = clk_pll_recalc_rate,
 	.determine_rate = clk_pll_determine_rate,
 	.set_rate = clk_pll_set_rate,
+	.list_registers = clk_pll_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_pll_ops);
 
@@ -192,7 +260,7 @@ static int wait_for_pll(struct clk_pll *pll)
 	const char *name = clk_hw_get_name(&pll->clkr.hw);
 
 	/* Wait for pll to enable. */
-	for (count = 200; count > 0; count--) {
+	for (count = 500; count > 0; count--) {
 		ret = regmap_read(pll->clkr.regmap, pll->status_reg, &val);
 		if (ret)
 			return ret;
@@ -201,7 +269,8 @@ static int wait_for_pll(struct clk_pll *pll)
 		udelay(1);
 	}
 
-	WARN(1, "%s didn't enable after voting for it!\n", name);
+	WARN_CLK(pll->clkr.hw.core, name, 1,
+			"didn't enable after voting for it!\n");
 	return -ETIMEDOUT;
 }
 
@@ -274,6 +343,9 @@ static int clk_pll_sr2_enable(struct clk_hw *hw)
 	int ret;
 	u32 mode;
 
+	spm_event(pll->spm_ctrl.spm_base, pll->spm_ctrl.offset,
+			pll->spm_ctrl.event_bit, false);
+
 	ret = regmap_read(pll->clkr.regmap, pll->mode_reg, &mode);
 	if (ret)
 		return ret;
@@ -295,6 +367,10 @@ static int clk_pll_sr2_enable(struct clk_hw *hw)
 				 PLL_RESET_N);
 	if (ret)
 		return ret;
+
+	/* Make sure De-assert active-low PLL reset request goes through */
+	mb();
+	udelay(50);
 
 	ret = wait_for_pll(pll);
 	if (ret)

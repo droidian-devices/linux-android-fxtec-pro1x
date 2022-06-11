@@ -91,7 +91,7 @@
 #define TWO 2
 #define QSEECOM_UFS_ICE_CE_NUM 10
 #define QSEECOM_SDCC_ICE_CE_NUM 20
-#define QSEECOM_ICE_FDE_KEY_INDEX 0
+#define QSEECOM_ICE_FDE_KEY_INDEX 31
 
 #define PHY_ADDR_4G	(1ULL<<32)
 
@@ -2623,12 +2623,6 @@ err_resp:
 		case QSEOS_RESULT_CBACK_REQUEST:
 			pr_warn("get cback req app_id = %d, resp->data = %d\n",
 				data->client.app_id, resp->data);
-			resp->resp_type = SMCINVOKE_RESULT_INBOUND_REQ_NEEDED;
-			/* We are here because scm call sent to TZ has requested
-			 * for another callback request. This call has been a
-			 * success and hence setting result = 0
-			 */
-			resp->result = 0;
 			break;
 		default:
 			pr_err("fail:resp res= %d,app_id = %d,lstr = %d\n",
@@ -3710,8 +3704,8 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 				(uint32_t)(__qseecom_uvirt_to_kphys(
 				data, (uintptr_t)req->resp_buf));
 		} else {
-			send_data_req.req_ptr = (uint32_t)req->cmd_req_buf;
-			send_data_req.rsp_ptr = (uint32_t)req->resp_buf;
+			send_data_req.req_ptr = (uintptr_t)req->cmd_req_buf;
+			send_data_req.rsp_ptr = (uintptr_t)req->resp_buf;
 		}
 
 		send_data_req.req_len = req->cmd_req_len;
