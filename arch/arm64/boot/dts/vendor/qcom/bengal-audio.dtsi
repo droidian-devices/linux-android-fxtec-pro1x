@@ -21,14 +21,15 @@
 #include "bengal-lpi.dtsi"
 
 &q6core {
-	cdc_dmic01_gpios: cdc_dmic01_pinctrl {
+        /* add by zhangzuhui */
+	/*cdc_dmic01_gpios: cdc_dmic01_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_dmic01_clk_active &cdc_dmic01_data_active>;
 		pinctrl-1 = <&cdc_dmic01_clk_sleep &cdc_dmic01_data_sleep>;
 		qcom,lpi-gpios;
-	};
-
+	};*/
+ 	/* add by zhangzuhui */
 	cdc_dmic23_gpios: cdc_dmic23_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
@@ -61,7 +62,6 @@
 	};
 
 	wsa881x_analog_clk_gpio: msm_cdc_pinctrl@18 {
-		status = "disabled";
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&wsa_mclk_active>;
