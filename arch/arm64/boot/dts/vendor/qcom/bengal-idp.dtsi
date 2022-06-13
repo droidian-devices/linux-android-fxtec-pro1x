@@ -126,8 +126,8 @@
 		hall_switch {
 			label = "hall_switch";
 			gpios = <&tlmm 96 0x1>;
-			linux,input-type = <5>;
-			linux,code = <0x00>;
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_KEYPAD_SLIDE>;
 			gpio-key,wakeup;
 			debounce-interval = <90>;
 		};
