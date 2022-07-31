@@ -236,7 +236,7 @@
             label = "home";
             gpios = <&tlmm 93 1>;
             linux,input-type = <1>;
-            linux,code = <KEY_HOMEPAGE>;
+            linux,code = <KEY_LEFTMETA>;
             debounce-interval = <15>;
             //gpio-key,wakeup;
         };
