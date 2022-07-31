@@ -648,7 +648,7 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 
 	return 0;
 }
-/*
+
 static void gpio_keys_report_state(struct gpio_keys_drvdata *ddata)
 {
 	struct input_dev *input = ddata->input;
@@ -661,7 +661,7 @@ static void gpio_keys_report_state(struct gpio_keys_drvdata *ddata)
 	}
 	input_sync(input);
 }
-*/
+
 static int gpio_keys_pinctrl_configure(struct gpio_keys_drvdata *ddata,
 							bool active)
 {
@@ -710,7 +710,7 @@ static int gpio_keys_open(struct input_dev *input)
 	}
 
 	/* Report current state of buttons that are connected to GPIOs */
-	//gpio_keys_report_state(ddata);
+	gpio_keys_report_state(ddata);
 
 	return 0;
 }
