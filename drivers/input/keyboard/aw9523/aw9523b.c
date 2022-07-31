@@ -1,3 +1,11 @@
+/*
+ * Original code comes from the F(x)tec Pro1-X kernel source.
+ *
+ * Some parts specific for this port come from the rewritten keyboard driver
+ * for F(x)tec Pro1 (QX1000), by Tom Marshall:
+ *   Copyright (c) 2020 Tom Marshall <tdm.code@gmail.com>
+ */
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
@@ -142,15 +150,49 @@ static struct aw9523b_data *g_aw9523_data=NULL;
 static struct input_dev *aw9523b_input_dev = NULL;
 static struct i2c_client *g_client = NULL;
 
+/* Borrowed by qx1000 keyboard driver */
+
+/*
+ * These keys are reserved for stylus devices.  If they are included in
+ * the input device capabilities, Android will assume that the device
+ * is a stylus, not a keyboard.  So we must avoid them.
+ */
+#define KEY_STYLUS_MIN		BTN_DIGI
+#define KEY_STYLUS_MAX		BTN_WHEEL
+
+#define KF_SHIFT		0x8000
+#define KF_CTRL			0x4000
+#define KF_ALT			0x2000
+#define KF_ALTGR		0x1000
+#define KF_UNUSED1		0x0800	/* For future use */
+#define KF_FN			0x0400	/* Not used in key array */
+
+#define KEY_FLAGS(key) ((key) & 0xf000)
+#define KEY_VALUE(key) ((key) & 0x0fff)
+
+static u16 g_physical_modifiers = 0;
+static u16 g_logical_modifiers = 0;
+
 static const unsigned short  key_array[Y_NUM][X_NUM] = {
 	{ 0xFFFF,        KEY_J,         KEY_N,          KEY_7,        KEY_UP,        KEY_ENTER,  KEY_U,     KEY_DOT       },
 	{ KEY_3,         KEY_D,         KEY_X,          KEY_COMMA,    KEY_O,         KEY_9,      KEY_E,     KEY_K           },
 	{ KEY_LEFT,      KEY_H,         KEY_B,          KEY_6,        KEY_RIGHT,     KEY_DELETE, KEY_Y,     KEY_SLASH         },
-	{ KEY_SYM,       KEY_S,         KEY_Z,          KEY_HOMEPAGE, KEY_LEFTBRACE, KEY_MINUS,  KEY_W,     KEY_SEMICOLON           },
+	{ KEY_SYM,       KEY_S,         KEY_Z,          KEY_HOMEPAGE, KEY_LEFTBRACE, KEY_MINUS,  KEY_W,     KEY_SLASH | KF_SHIFT },
 	{ KEY_BACKSPACE, KEY_F,         KEY_C,          0xFFFF,       KEY_RIGHTBRACE,KEY_EQUAL,  KEY_R,     KEY_APOSTROPHE  },
 	{ KEY_CAPSLOCK,  KEY_A,         KEY_GRAVE,      KEY_DOWN,     KEY_P,         KEY_0,      KEY_Q,     KEY_L           },
 	{ KEY_SPACE,     KEY_G,         KEY_V,          KEY_M,        KEY_I,         KEY_8,      KEY_T,     KEY_5           },
 	{ KEY_ESC,       KEY_1,         0xFFFF,         0xFFFF,       KEY_2,         KEY_4,      KEY_TAB,   0xFFFF            }
+};
+
+static const unsigned short  key_fn_array[Y_NUM][X_NUM] = {
+	{ 0xFFFF,           KEY_J,            KEY_N,                KEY_7 | KF_SHIFT,     KEY_UP,                    KEY_ENTER,            KEY_U,   KEY_DOT | KF_SHIFT        },
+	{ KEY_3 | KF_SHIFT, KEY_D,            KEY_X,                KEY_COMMA | KF_SHIFT, KEY_O,                     KEY_9 | KF_SHIFT,     KEY_E,   KEY_K                     },
+	{ KEY_LEFT,         KEY_H,            KEY_B,                KEY_6 | KF_SHIFT,     KEY_RIGHT,                 KEY_DELETE,           KEY_Y,   KEY_BACKSLASH | KF_SHIFT  },
+	{ KEY_SYM,          KEY_S,            KEY_Z,                KEY_HOMEPAGE,         KEY_LEFTBRACE | KF_SHIFT,  KEY_MINUS | KF_SHIFT, KEY_W,   KEY_SEMICOLON | KF_SHIFT  },
+	{ KEY_BACKSPACE,    KEY_F,            KEY_C,                0xFFFF,               KEY_RIGHTBRACE | KF_SHIFT, KEY_EQUAL | KF_SHIFT, KEY_R,   KEY_APOSTROPHE | KF_SHIFT },
+	{ KEY_CAPSLOCK,     KEY_A,            KEY_GRAVE | KF_SHIFT, KEY_DOWN,             KEY_BACKSLASH,             KEY_0 | KF_SHIFT,     KEY_Q,   KEY_SEMICOLON             },
+	{ KEY_SPACE,        KEY_G,            KEY_V,                KEY_M,                KEY_I,                     KEY_8 | KF_SHIFT,     KEY_T,   KEY_5 | KF_SHIFT          },
+	{ KEY_ESC,          KEY_1 | KF_SHIFT, 0xFFFF,               0xFFFF,               KEY_2 | KF_SHIFT,          KEY_4 | KF_SHIFT,     KEY_TAB, 0xFFFF                    }
 };
 
 // This macro sets the interval between polls of the key matrix for ghosted keys (in milliseconds).
@@ -410,6 +452,7 @@ static void aw9523b_work_func(struct work_struct *work)
 
 	struct aw9523b_data *pdata = NULL;
 	u16 keycode = 0xFF;
+	u16 force_flags = 0;
 	int i, j, k;
 	u8 keymask = 0;
 
@@ -448,7 +491,13 @@ static void aw9523b_work_func(struct work_struct *work)
 	// Find changed keys and send keycodes for them.
 	for (i = 0; i < Y_NUM; i++) {
 		for (j = 0; j < X_NUM; j++) {
-			keycode = key_array[i][j];
+			if (g_physical_modifiers & KF_FN) {
+				keycode = KEY_VALUE(key_fn_array[i][j]);
+				force_flags = KEY_FLAGS(key_fn_array[i][j]);
+			} else {
+				keycode = KEY_VALUE(key_array[i][j]);
+				force_flags = KEY_FLAGS(key_array[i][j]);
+			}
 			if (state[i] & (1 << j) && !(down[i] & (1 << j))) { // Keypress.
 				// Check if the key is possibly a ghost.
 				// Talking from the point of view that P1 is the row driver and P0 are columns.
@@ -473,10 +522,18 @@ static void aw9523b_work_func(struct work_struct *work)
 					capslock_led_enable++;
 				}
 
+				/* Handle eventual forced flags */
+				if ((force_flags & KF_SHIFT) && !(g_logical_modifiers & KF_SHIFT)) {
+					AW9523_LOG("(press) FORCED FLAG KF_SHIFT \n");
+					input_report_key(aw9523b_input_dev, KEY_RIGHTSHIFT, 1);
+					input_sync(aw9523b_input_dev);
+					g_logical_modifiers |= KF_SHIFT;
+				}
+
                 if(keycode != 0xFFFF)
                 {
                     AW9523_LOG("(press) keycode = %d \n", keycode);
-				    input_report_key(aw9523b_input_dev, keycode, 1);
+                                   input_report_key(aw9523b_input_dev, keycode, 1);
                 }
 
 
@@ -492,6 +549,14 @@ static void aw9523b_work_func(struct work_struct *work)
                     AW9523_LOG("(released) keycode = %d \n", keycode);
 				    input_report_key(aw9523b_input_dev, keycode, 0);
                 }
+
+				/* Handle eventual forced flags */
+				if ((g_logical_modifiers & KF_SHIFT) && !(g_physical_modifiers & KF_SHIFT)) {
+					AW9523_LOG("(released) FORCED FLAG KF_SHIFT \n");
+					input_sync(aw9523b_input_dev);
+					input_report_key(aw9523b_input_dev, KEY_RIGHTSHIFT, 0);
+					g_logical_modifiers &= ~KF_SHIFT;
+				}
 			}
 			next:;
 		}
@@ -616,7 +681,7 @@ static struct platform_driver aw9523b_pdrv;
 
 static int register_aw9523b_input_dev(struct device *pdev)
 {
-    int i,j;
+    int key;
     //int r;
 
     AW9523_FUN(f);
@@ -637,10 +702,13 @@ static int register_aw9523b_input_dev(struct device *pdev)
 
     __set_bit(EV_KEY, aw9523b_input_dev->evbit);
 
-	for (i=0;i<X_NUM;i++)
-		for (j=0;j<Y_NUM;j++)
-			if (key_array[i][j]!=0xffff)
-				input_set_capability(aw9523b_input_dev, EV_KEY, key_array[i][j]);
+    /* We can potentially generate all keys due to remapping */
+    for (key = 1; key < 0xff; ++key) {
+        if (key >= KEY_STYLUS_MIN && key < KEY_STYLUS_MAX)
+            continue;
+
+        input_set_capability(aw9523b_input_dev, EV_KEY, key);
+    }
 
 
     aw9523b_input_dev->dev.parent = pdev;
@@ -1610,7 +1678,18 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		if (state)
 			input_event(input, type, button->code, button->value);
 	} else {
-		input_event(input, type, *bdata->code, state);
+		/* TODO: Handle SHIFT as well? */
+		if (*bdata->code == KEY_FN) {
+			if (state) {
+				AW9523_LOG("(press) KF_FN \n");
+				g_physical_modifiers |= KF_FN;
+			} else {
+				AW9523_LOG("(released) KF_FN \n");
+				g_physical_modifiers &= ~KF_FN;
+			}
+		} else {
+			input_event(input, type, *bdata->code, state);
+		}
 	}
 	input_sync(input);
 }
