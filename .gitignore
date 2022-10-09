@@ -149,3 +149,6 @@ debian/debhelper-build-stamp
 debian/linux-*/
 debian/*.postinst
 out/
+
+# Added by Droidian
+!.circleci/
