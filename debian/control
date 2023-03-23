@@ -6,10 +6,12 @@ Uploaders: Eugenio Paolantonio (g7) <eugenio@droidian.org>,
            r3vn <giuseppe@droidian.org>,
            Erfan Abdi <erfan@droidian.org>,
            Erik Inkinen <erik@droidian.org>,
+XS-Droidian-Host-Arch: arm64
+XS-Droidian-Build-On: amd64
 Build-Depends: build-essential,
                dpkg-dev,
                findutils,
-               python2,
+               android-platform-prebuilts-python-linux-x86-2.7.5,
                debhelper (>= 13),
                bc,
                rsync,
